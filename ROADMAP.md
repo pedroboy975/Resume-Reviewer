@@ -39,10 +39,10 @@ resolva agora — todo o resto herda o erro.
 
 TypeScript puro em `src/lib/`. Nenhum modelo envolvido.
 
-- [ ] `pii.ts` — regex para telefone BR/intl, e-mail, CPF, CEP, data de nascimento, estado civil. Retorna texto redigido + lista do que achou
-- [ ] `dates.ts` — parse de períodos PT/EN (`jan/2020 – atual`, `2018-2021`), cálculo de lacunas e permanências curtas em ms
-- [ ] `sections.ts` — slicing em Header / Resumo / Experiência / Formação / Competências por heurística de heading (fontSize + keywords)
-- [ ] `limits.ts` — contagem de caracteres por campo. Headline LinkedIn = 220, About = 2600
+- [x] `pii.ts` — e-mail (inclusive quebrado em duas linhas pela barra lateral do LinkedIn), telefone BR/intl, CPF, RG, CEP, endereço, data de nascimento, idade, estado civil, sexo. Retorna texto redigido + lista do que achou
+- [x] `dates.ts` — parse de períodos PT/EN (`jan/2020 – atual`, `2018-2021`, `Agosto/2013 á Março/2014`), lacunas e permanências curtas em meses
+- [x] `sections.ts` — slicing em Cabeçalho / Contato / Resumo / Experiência / Formação / Competências / Idiomas / Certificações. Só palavra-chave e formato da linha: a entrada por textarea não tem informação de fonte, e precisa funcionar igual
+- [x] `limits.ts` — contagem de caracteres por campo. Headline LinkedIn = 220, About = 2600
 
 **Pronto quando:** cada módulo tem teste contra os 5 fixtures.
 
