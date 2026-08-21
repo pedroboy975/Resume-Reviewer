@@ -53,14 +53,21 @@ export function buildTimeline(
     widthPct: Math.max(1, (monthsBetween(start, end) / months) * 100),
   });
 
+  // Do mais antigo para o mais recente. O documento costuma vir ao contrário
+  // (LinkedIn lista o emprego atual primeiro), e ler carreira de baixo para
+  // cima não ajuda ninguém.
+  const ordered = periods
+    .map((period, i) => ({ period, end: ends[i] }))
+    .sort((a, b) => monthsBetween(b.period.start, a.period.start));
+
   return {
     from,
     to,
     months,
-    bars: periods.map((period, i) => ({
+    bars: ordered.map(({ period, end }) => ({
       period,
-      months: monthsBetween(period.start, ends[i]),
-      ...place(period.start, ends[i]),
+      months: monthsBetween(period.start, end),
+      ...place(period.start, end),
     })),
     gaps: gaps.map((gap) => ({ ...gap, ...place(gap.from, gap.to) })),
   };

@@ -48,6 +48,19 @@ describe('buildTimeline', () => {
     );
   });
 
+  it('ordena do mais antigo para o mais recente, mesmo se o documento inverte', () => {
+    // O LinkedIn lista o emprego atual primeiro; ler carreira de baixo para
+    // cima não ajuda ninguém.
+    const timeline = buildTimeline(parsePeriods('01/2019 - 01/2021\n01/2015 - 01/2018'), [], {
+      now: NOW,
+    });
+    expect(timeline.bars.map((b) => b.period.quote)).toEqual([
+      '01/2015 - 01/2018',
+      '01/2019 - 01/2021',
+    ]);
+    expect(timeline.bars[0].leftPct).toBeLessThan(timeline.bars[1].leftPct);
+  });
+
   it('sem período, a linha do tempo é vazia e não quebra', () => {
     const timeline = buildTimeline([], [], { now: NOW });
     expect(timeline.bars).toEqual([]);
