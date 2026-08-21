@@ -65,11 +65,11 @@ com precisão total e zero VRAM.
 
 ## Sprint 4 — v0 utilizável · 5h · semana de 21/09 · **MARCO**
 
-- [ ] Formulário de contexto: cargo-alvo, nível-alvo, setor, país, restrições de divulgação
-- [ ] Se o usuário não souber o cargo-alvo: campo livre + aviso de que a análise sai genérica sem isso. A derivação automática de direções fica para o Sprint 8
-- [ ] Colar de 2 a 5 vagas-alvo (texto, não link)
-- [ ] Montador que gera o dossiê estruturado + prompt completo → clipboard
-- [ ] Export em `.md`
+- [x] Formulário de contexto: cargo-alvo, nível-alvo, setor, país, restrições de divulgação
+- [x] Se o usuário não souber o cargo-alvo: campo livre + aviso de que a análise sai genérica sem isso, e o dossiê manda o modelo derivar de 2 a 3 direções antes de reescrever
+- [x] Colar de 2 a 5 vagas-alvo (texto, não link)
+- [x] Montador que gera o dossiê estruturado + prompt completo → clipboard
+- [x] Export em `.md`
 
 **Pronto quando:** você e um amigo rodam uma análise completa de ponta a ponta
 colando o output em qualquer chat, e o resultado é melhor que colar o PDF cru.

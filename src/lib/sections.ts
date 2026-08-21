@@ -57,8 +57,8 @@ const HEADINGS: [SectionKind, RegExp][] = [
   ['contato', /^(contatos?|contact|dados pessoais|informacoes pessoais|informacoes de contato)\b/],
 ];
 
-/** Título de seção é linha curta, sem cara de frase. */
-function headingKind(line: string): SectionKind | null {
+/** Título de seção é linha curta, sem cara de frase. Devolve `null` se não for. */
+export function detectHeading(line: string): SectionKind | null {
   const trimmed = line.trim();
   if (trimmed === '' || trimmed.length > 60) return null;
   // Frase inteira não é título, por mais que comece com a palavra certa:
@@ -94,7 +94,7 @@ export function splitSections(text: string): Section[] {
 
   const marks: { kind: SectionKind; line: number }[] = [];
   lines.forEach((line, i) => {
-    const kind = headingKind(line);
+    const kind = detectHeading(line);
     if (kind) marks.push({ kind, line: i });
   });
 
@@ -151,7 +151,7 @@ export function assignLines(text: string): SectionKind[] {
 
   let current: SectionKind = 'header';
   lines.forEach((line, i) => {
-    const kind = headingKind(line);
+    const kind = detectHeading(line);
     if (kind) current = kind;
     assignment[i] = current;
   });
@@ -181,3 +181,16 @@ export function groupAssignedLines(lines: string[], assignment: SectionKind[]): 
   });
   return groups;
 }
+
+/** Ordem canônica das seções no dossiê. Currículo não sai na ordem do PDF. */
+export const SECTION_ORDER: SectionKind[] = [
+  'header',
+  'resumo',
+  'experiencia',
+  'formacao',
+  'competencias',
+  'certificacoes',
+  'idiomas',
+  'outros',
+  'contato',
+];

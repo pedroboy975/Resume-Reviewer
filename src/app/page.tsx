@@ -4,8 +4,10 @@ import { useMemo, useState } from 'react';
 import { readPdfText } from '@/lib/pdf-client';
 import { redact, type PiiFinding } from '@/lib/pii';
 import { assignLines, groupAssignedLines, type SectionKind } from '@/lib/sections';
-import { findGaps, parsePeriods } from '@/lib/dates';
+import { findGaps, parsePeriods, shortTenures } from '@/lib/dates';
 import { buildTimeline } from '@/lib/timeline';
+import { buildDossier, EMPTY_CONTEXT, type CareerContext } from '@/lib/dossier';
+import { ContextForm } from '@/components/context-form';
 import { PiiPanel } from '@/components/pii-panel';
 import { SectionEditor } from '@/components/section-editor';
 import { Timeline } from '@/components/timeline';
@@ -22,6 +24,9 @@ export default function Home() {
   const [findings, setFindings] = useState<PiiFinding[]>([]);
   const [assignment, setAssignment] = useState<SectionKind[]>([]);
   const [selection, setSelection] = useState<{ from: number; to: number } | null>(null);
+  const [context, setContext] = useState<CareerContext>(EMPTY_CONTEXT);
+  const [jobs, setJobs] = useState<string[]>(['', '']);
+  const [copied, setCopied] = useState(false);
 
   /** Redação acontece na entrada. O que fica no estado já está sem PII. */
   function load(raw: string) {
@@ -44,17 +49,39 @@ export default function Home() {
   }
 
   const lines = useMemo(() => text.split('\n'), [text]);
+  const sections = useMemo(() => groupAssignedLines(lines, assignment), [lines, assignment]);
 
-  const timeline = useMemo(() => {
-    // Só a experiência entra na linha do tempo: datas de formação e de
-    // certificado abririam lacunas que não são lacunas de emprego.
-    const experiencia = groupAssignedLines(lines, assignment)
-      .filter((g) => g.kind === 'experiencia')
-      .map((g) => g.text)
-      .join('\n');
-    const periods = parsePeriods(experiencia);
-    return buildTimeline(periods, findGaps(periods));
-  }, [lines, assignment]);
+  /**
+   * Só a experiência entra nas datas: períodos de formação e de certificado
+   * abririam lacunas que não são lacunas de emprego.
+   */
+  const periods = useMemo(
+    () =>
+      parsePeriods(
+        sections
+          .filter((s) => s.kind === 'experiencia')
+          .map((s) => s.text)
+          .join('\n'),
+      ),
+    [sections],
+  );
+
+  const gaps = useMemo(() => findGaps(periods), [periods]);
+  const timeline = useMemo(() => buildTimeline(periods, gaps), [periods, gaps]);
+
+  const dossier = useMemo(
+    () =>
+      buildDossier({
+        context,
+        sections,
+        pii: findings,
+        periods,
+        gaps,
+        shortTenures: shortTenures(periods),
+        jobs,
+      }),
+    [context, sections, findings, periods, gaps, jobs],
+  );
 
   function onSelect(line: number, extend: boolean) {
     setSelection((current) =>
@@ -69,6 +96,22 @@ export default function Home() {
     setAssignment((current) =>
       current.map((k, i) => (i >= selection.from && i <= selection.to ? kind : k)),
     );
+  }
+
+  async function copy() {
+    await navigator.clipboard.writeText(dossier);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  /** Download client-side: o arquivo é montado na memória do navegador. */
+  function download() {
+    const url = URL.createObjectURL(new Blob([dossier], { type: 'text/markdown' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'dossie-carreira.md';
+    link.click();
+    URL.revokeObjectURL(url);
   }
 
   return (
@@ -134,6 +177,53 @@ export default function Home() {
               onSelect={onSelect}
               onAssign={onAssign}
             />
+          </section>
+
+          <section className="flex flex-col gap-3">
+            <h2 className="text-sm font-semibold">Contexto</h2>
+            <ContextForm
+              context={context}
+              jobs={jobs}
+              onContext={setContext}
+              onJobs={setJobs}
+            />
+          </section>
+
+          <section className="flex flex-col gap-3">
+            <h2 className="text-sm font-semibold">Dossiê</h2>
+            <p className="text-sm text-zinc-500">
+              Prompt de análise + seu documento + os achados calculados aqui.
+              Cole em qualquer chat de IA.
+            </p>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={copy}
+                className="rounded bg-zinc-900 px-3 py-1.5 text-sm text-white dark:bg-zinc-100 dark:text-black"
+              >
+                {copied ? 'Copiado' : 'Copiar dossiê'}
+              </button>
+              <button
+                type="button"
+                onClick={download}
+                className="rounded border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-900"
+              >
+                Baixar .md
+              </button>
+              <span className="text-xs text-zinc-500">
+                {dossier.length.toLocaleString('pt-BR')} caracteres
+              </span>
+            </div>
+
+            <details>
+              <summary className="cursor-pointer text-sm text-zinc-500">
+                Ver o dossiê antes de copiar
+              </summary>
+              <pre className="mt-2 max-h-96 overflow-auto rounded border border-zinc-300 p-3 font-mono text-xs whitespace-pre-wrap dark:border-zinc-700">
+                {dossier}
+              </pre>
+            </details>
           </section>
         </>
       )}
