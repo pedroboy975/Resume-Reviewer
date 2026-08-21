@@ -14,6 +14,8 @@ const input = (over: Partial<DossierInput> = {}): DossierInput => ({
   periods: [],
   gaps: [],
   shortTenures: [],
+  buzzwords: [],
+  metrics: [],
   jobs: [],
   now: NOW,
   ...over,

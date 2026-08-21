@@ -8,7 +8,9 @@
  * nunca entra no dossiê. Só o tipo e a quantidade. Ver CLAUDE.md > PII.
  */
 
+import type { BuzzwordFinding } from './buzzwords';
 import { durationMonths, type Gap, type Period, type YearMonth } from './dates';
+import type { MissingMetricLine } from './metrics';
 import { checkField, countChars, LINKEDIN } from './limits';
 import { redact, summarizePii, type PiiFinding, type PiiKind } from './pii';
 import { CAREER_PROMPT } from './prompt';
@@ -68,6 +70,9 @@ export type DossierInput = {
   periods: Period[];
   gaps: Gap[];
   shortTenures: Period[];
+  buzzwords: BuzzwordFinding[];
+  /** Achado + resposta (vazia = ainda sem número) da Fase 3 assistida. */
+  metrics: { finding: MissingMetricLine; answer: string }[];
   /** Texto colado das vagas-alvo. Link não serve: o modelo não abre. */
   jobs: string[];
   now?: Date;
@@ -242,6 +247,35 @@ function findingsBlock(input: DossierInput): string {
           .join('; ')}`
       : '- **Permanências abaixo de 12 meses:** nenhuma',
   );
+
+  lines.push(
+    input.buzzwords.length > 0
+      ? `- **Termos genéricos sem evidência por perto:** ${input.buzzwords
+          .map((b) => `"${b.quote}"`)
+          .join(', ')}. Não reescreva por conta própria — aponte o trecho e peça reescrita no` +
+        ' formato Ação + Método + Problema + Resultado, só com número que a pessoa confirmar.'
+      : '- **Termos genéricos sem evidência por perto:** nenhum',
+  );
+
+  if (input.metrics.length > 0) {
+    const answered = input.metrics.filter((m) => m.answer.trim() !== '');
+    const unanswered = input.metrics.filter((m) => m.answer.trim() === '');
+
+    lines.push('- **Resultados sem número, com resposta confirmada pela pessoa (Fase 3 assistida):**');
+    lines.push(
+      ...(answered.length > 0
+        ? answered.map((m) => `  - "${m.finding.quote}" → ${m.answer.trim()}`)
+        : ['  - nenhuma resposta ainda']),
+    );
+
+    if (unanswered.length > 0) {
+      lines.push(
+        `- **Ainda sem número (${unanswered.length}):** ${unanswered
+          .map((m) => `"${m.finding.quote}"`)
+          .join('; ')}. Mantenha [FALTA NÚMERO] nesses trechos — não estime.`,
+      );
+    }
+  }
 
   const pii = Object.entries(summarizePii(input.pii)) as [PiiKind, number][];
   lines.push(

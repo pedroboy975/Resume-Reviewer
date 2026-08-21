@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { readPdfText } from '@/lib/pdf-client';
+import { findBuzzwords } from '@/lib/buzzwords';
 import { redact, type PiiFinding } from '@/lib/pii';
 import {
   assignLines,
@@ -12,14 +13,19 @@ import {
 import { durationMonths, findGaps, parsePeriods, shortTenures } from '@/lib/dates';
 import { buildTimeline } from '@/lib/timeline';
 import { chronological, extractCompanies } from '@/lib/companies';
+import { findMissingMetrics } from '@/lib/metrics';
 import { buildDossier, EMPTY_CONTEXT, type CareerContext } from '@/lib/dossier';
 import { ContextForm } from '@/components/context-form';
+import { MetricAssistant } from '@/components/metric-assistant';
 import { PiiPanel } from '@/components/pii-panel';
 import { SectionEditor } from '@/components/section-editor';
 import { SourcePicker } from '@/components/source-picker';
 import { Timeline } from '@/components/timeline';
 import { InteractiveSynapseNetwork } from '@/components/ui/interactive-synapse-network';
 import { LogoTimeline, type LogoItem } from '@/components/ui/logo-timeline';
+
+/** Reaproveitado por `logoItems` e `missingMetrics` pra não requalificar linha de data. */
+const hasPeriod = (line: string) => parsePeriods(line).length > 0;
 
 type Status =
   | { step: 'vazio' }
@@ -36,6 +42,7 @@ export default function Home() {
   const [selection, setSelection] = useState<{ from: number; to: number } | null>(null);
   const [context, setContext] = useState<CareerContext>(EMPTY_CONTEXT);
   const [jobs, setJobs] = useState<string[]>(['', '']);
+  const [metricAnswers, setMetricAnswers] = useState<Record<string, string>>({});
   const [copied, setCopied] = useState(false);
 
   /** Redação acontece na entrada. O que fica no estado já está sem PII. */
@@ -45,6 +52,7 @@ export default function Home() {
     setFindings(redacted.findings);
     setAssignment(assignLines(redacted.text));
     setSelection(null);
+    setMetricAnswers({});
     setStatus({ step: 'pronto' });
   }
 
@@ -95,7 +103,6 @@ export default function Home() {
    * no fim, porque o vínculo também parou ali.
    */
   const logoItems = useMemo<LogoItem[]>(() => {
-    const hasPeriod = (line: string) => parsePeriods(line).length > 0;
     const stints = chronological(extractCompanies(expText, periods, hasPeriod));
     return stints.map((stint, i) => {
       const months = durationMonths(stint.period);
@@ -113,6 +120,22 @@ export default function Home() {
     });
   }, [expText, periods]);
 
+  const buzzwords = useMemo(() => findBuzzwords(text), [text]);
+
+  const missingMetrics = useMemo(
+    () => findMissingMetrics(expText, hasPeriod),
+    [expText],
+  );
+
+  const metrics = useMemo(
+    () => missingMetrics.map((finding) => ({ finding, answer: metricAnswers[finding.quote] ?? '' })),
+    [missingMetrics, metricAnswers],
+  );
+
+  function onMetricAnswer(quote: string, value: string) {
+    setMetricAnswers((current) => ({ ...current, [quote]: value }));
+  }
+
   const dossier = useMemo(
     () =>
       buildDossier({
@@ -122,9 +145,11 @@ export default function Home() {
         periods,
         gaps,
         shortTenures: shortTenures(periods),
+        buzzwords,
+        metrics,
         jobs,
       }),
-    [context, sections, findings, periods, gaps, jobs],
+    [context, sections, findings, periods, gaps, buzzwords, metrics, jobs],
   );
 
   function onSelect(line: number, extend: boolean) {
@@ -260,7 +285,12 @@ export default function Home() {
           </section>
 
           <section className="mt-10 flex flex-col gap-3 border-t border-border pt-8">
-            <Stage n={5} label="Contexto" />
+            <Stage n={5} label="Métricas" />
+            <MetricAssistant missing={missingMetrics} answers={metricAnswers} onAnswer={onMetricAnswer} />
+          </section>
+
+          <section className="mt-10 flex flex-col gap-3 border-t border-border pt-8">
+            <Stage n={6} label="Contexto" />
             <ContextForm
               context={context}
               jobs={jobs}
@@ -270,7 +300,7 @@ export default function Home() {
           </section>
 
           <section className="mt-10 flex flex-col gap-3 border-t border-border pt-8">
-            <Stage n={6} label="Dossiê" />
+            <Stage n={7} label="Dossiê" />
             <p className="text-sm text-ink-dim">
               Prompt de análise + seu documento + os achados calculados aqui.
               Cole em qualquer chat de IA.

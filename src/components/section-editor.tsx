@@ -1,8 +1,30 @@
 'use client';
 
+import type { ReactNode } from 'react';
+import { findBuzzwords } from '@/lib/buzzwords';
 import { groupAssignedLines, SECTION_LABEL, type SectionKind } from '@/lib/sections';
 
 const KINDS = Object.keys(SECTION_LABEL) as SectionKind[];
+
+/** A linha com cada jargão encontrado embrulhado em destaque. */
+function highlightBuzzwords(line: string) {
+  const found = findBuzzwords(line);
+  if (found.length === 0) return line || ' ';
+
+  const parts: ReactNode[] = [];
+  let cursor = 0;
+  found.forEach((f, i) => {
+    if (f.index > cursor) parts.push(line.slice(cursor, f.index));
+    parts.push(
+      <mark key={i} className="rounded-sm bg-red-dim text-red" title="Termo genérico, sem evidência">
+        {f.quote}
+      </mark>,
+    );
+    cursor = f.index + f.quote.length;
+  });
+  if (cursor < line.length) parts.push(line.slice(cursor));
+  return parts;
+}
 
 type Props = {
   lines: string[];
@@ -21,9 +43,18 @@ type Props = {
 export function SectionEditor({ lines, assignment, selection, onSelect, onAssign }: Props) {
   const selected = (i: number) => selection !== null && i >= selection.from && i <= selection.to;
   const groups = groupAssignedLines(lines, assignment);
+  const buzzwordCount = lines.reduce((n, line) => n + findBuzzwords(line).length, 0);
 
   return (
     <div className="flex flex-col gap-3">
+      {buzzwordCount > 0 && (
+        <p className="text-xs text-ink-dim">
+          <mark className="rounded-sm bg-red-dim px-1 text-red">{buzzwordCount}</mark> termo
+          {buzzwordCount > 1 ? 's' : ''} genérico{buzzwordCount > 1 ? 's' : ''} destacado
+          {buzzwordCount > 1 ? 's' : ''} abaixo — sem evidência por perto, não sustenta sozinho.
+        </p>
+      )}
+
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-xs text-ink-dim">
           {selection
@@ -58,7 +89,9 @@ export function SectionEditor({ lines, assignment, selection, onSelect, onAssign
                 <span className="w-24 shrink-0 truncate text-ink-dim">
                   {SECTION_LABEL[assignment[i]]}
                 </span>
-                <span className="whitespace-pre-wrap break-words text-ink">{line || ' '}</span>
+                <span className="whitespace-pre-wrap break-words text-ink">
+                  {highlightBuzzwords(line)}
+                </span>
               </button>
             </li>
           ))}

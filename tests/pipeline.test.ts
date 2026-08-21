@@ -6,7 +6,9 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import { findBuzzwords } from '@/lib/buzzwords';
 import { findGaps, parsePeriods, shortTenures } from '@/lib/dates';
+import { findMissingMetrics } from '@/lib/metrics';
 import { buildDossier, EMPTY_CONTEXT } from '@/lib/dossier';
 import { findPii, redact } from '@/lib/pii';
 import { assignLines, experienceText, groupAssignedLines } from '@/lib/sections';
@@ -34,6 +36,10 @@ async function analyze(file: string) {
       periods,
       gaps: findGaps(periods, { now: NOW }),
       shortTenures: shortTenures(periods, { now: NOW }),
+      buzzwords: findBuzzwords(text),
+      metrics: findMissingMetrics(experienceText(sections), (line) => parsePeriods(line).length > 0).map(
+        (finding) => ({ finding, answer: '' }),
+      ),
       jobs: ['Vaga colada de exemplo: liderar equipe de operações.'],
       now: NOW,
     }),
