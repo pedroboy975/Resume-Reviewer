@@ -22,7 +22,8 @@ type Status =
   | { step: 'vazio' }
   | { step: 'lendo'; done: number; total: number }
   | { step: 'pronto' }
-  | { step: 'erro'; message: string };
+  | { step: 'erro'; message: string }
+  | { step: 'sem-texto' };
 
 export default function Home() {
   const [status, setStatus] = useState<Status>({ step: 'vazio' });
@@ -44,14 +45,34 @@ export default function Home() {
     setStatus({ step: 'pronto' });
   }
 
+  /**
+   * PDF escaneado ou só imagem não tem camada de texto: o `pdfjs` devolve
+   * páginas com zero itens e nenhum erro. Sem essa checagem, o app mostra
+   * "pronto" com timeline vazia e dossiê sem documento — sucesso silencioso
+   * sobre um arquivo que na prática não foi lido. Não fazemos OCR aqui.
+   */
   async function onFile(file: File | undefined) {
     if (!file) return;
     setStatus({ step: 'lendo', done: 0, total: 1 });
     try {
-      load(await readPdfText(file, (done, total) => setStatus({ step: 'lendo', done, total })));
+      const text = await readPdfText(file, (done, total) => setStatus({ step: 'lendo', done, total }));
+      if (text.trim() === '') {
+        setStatus({ step: 'sem-texto' });
+        return;
+      }
+      load(text);
     } catch (e) {
       setStatus({ step: 'erro', message: e instanceof Error ? e.message : String(e) });
     }
+  }
+
+  /** Textarea esvaziado volta ao estado inicial, em vez de "pronto" sem nada para mostrar. */
+  function onPaste(value: string) {
+    if (value.trim() === '') {
+      setStatus({ step: 'vazio' });
+      return;
+    }
+    load(value);
   }
 
   const lines = useMemo(() => text.split('\n'), [text]);
@@ -148,13 +169,20 @@ export default function Home() {
         {status.step === 'erro' && (
           <p className="text-sm text-red-600">Não deu para ler o PDF: {status.message}</p>
         )}
+        {status.step === 'sem-texto' && (
+          <p className="text-sm text-red-600">
+            Não encontramos texto neste PDF. Ele provavelmente é uma versão escaneada ou uma
+            imagem — o app lê texto, não imagem, e ainda não faz OCR. Tente exportar de novo a
+            partir do documento original, ou cole o texto direto na caixa abaixo.
+          </p>
+        )}
 
         <details className="text-sm">
           <summary className="cursor-pointer text-zinc-500">
             Ou cole o texto direto, sem subir arquivo
           </summary>
           <textarea
-            onChange={(e) => load(e.target.value)}
+            onChange={(e) => onPaste(e.target.value)}
             spellCheck={false}
             placeholder="Cole aqui se preferir não subir o PDF."
             className="mt-2 min-h-40 w-full rounded border border-zinc-300 p-3 font-mono text-xs dark:border-zinc-700 dark:bg-zinc-950"
