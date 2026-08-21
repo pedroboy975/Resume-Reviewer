@@ -15,6 +15,7 @@ import { buildDossier, EMPTY_CONTEXT, type CareerContext } from '@/lib/dossier';
 import { ContextForm } from '@/components/context-form';
 import { PiiPanel } from '@/components/pii-panel';
 import { SectionEditor } from '@/components/section-editor';
+import { SourcePicker } from '@/components/source-picker';
 import { Timeline } from '@/components/timeline';
 
 type Status =
@@ -124,8 +125,13 @@ export default function Home() {
       </header>
 
       <section className="flex flex-col gap-3">
+        <SourcePicker
+          value={context.artifact}
+          onChange={(artifact) => setContext((c) => ({ ...c, artifact }))}
+        />
+
         <label className="flex flex-col gap-2 text-sm">
-          Currículo em PDF
+          Arquivo em PDF
           <input
             type="file"
             accept="application/pdf"
@@ -145,7 +151,7 @@ export default function Home() {
 
         <details className="text-sm">
           <summary className="cursor-pointer text-zinc-500">
-            Ou cole o texto do seu perfil do LinkedIn
+            Ou cole o texto direto, sem subir arquivo
           </summary>
           <textarea
             onChange={(e) => load(e.target.value)}

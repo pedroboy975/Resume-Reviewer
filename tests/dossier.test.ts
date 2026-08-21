@@ -43,6 +43,7 @@ describe('buildDossier', () => {
     const dossier = buildDossier(
       input({
         context: {
+          artifact: 'linkedin',
           targetRole: 'Gerente de Produto',
           targetLevel: 'Sênior',
           industry: 'Banco de varejo',
@@ -144,7 +145,11 @@ describe('buildDossier · achados determinísticos', () => {
 
   it('mede o resumo contra o limite do campo Sobre', () => {
     const resumo = 'x'.repeat(2700);
-    const dossier = buildDossier(fromText(`Nome\nRESUMO\n${resumo}`));
+    const dossier = buildDossier(
+      fromText(`Nome\nRESUMO\n${resumo}`, {
+        context: { ...EMPTY_CONTEXT, artifact: 'linkedin' },
+      }),
+    );
     expect(dossier).toContain('2700 caracteres');
     expect(dossier).toContain('acima do limite');
   });
@@ -231,5 +236,57 @@ describe('buildDossier · duração por extenso', () => {
     const dossier = buildDossier(fromText('Nome\nEXPERIÊNCIA\nA: 01/2015 - 02/2016'));
     expect(dossier).toContain('1 ano e 1 mês');
     expect(dossier).not.toContain('1 meses');
+  });
+});
+
+describe('buildDossier · tipo de artefato', () => {
+  const comResumo = `Nome\nHeadline muito longa\nRESUMO\n${'x'.repeat(2700)}`;
+
+  it.each([
+    ['linkedin', 'Perfil do LinkedIn'],
+    ['curriculo', 'Currículo'],
+    ['ambos', 'Perfil do LinkedIn e currículo'],
+  ] as const)('declara %s para a Fase 1', (artifact, label) => {
+    const dossier = buildDossier(input({ context: { ...EMPTY_CONTEXT, artifact } }));
+    expect(dossier).toContain(`**Tipo de artefato:** ${label}`);
+  });
+
+  it('currículo não é medido contra limite de campo do LinkedIn', () => {
+    // O limite de 2600 do campo "Sobre" não existe num PDF. Entregá-lo como
+    // achado calculado seria inventar restrição.
+    const dossier = buildDossier(
+      fromText(comResumo, { context: { ...EMPTY_CONTEXT, artifact: 'curriculo' } }),
+    );
+    expect(dossier).not.toContain('O campo "Sobre" do LinkedIn aceita');
+    expect(dossier).not.toContain('o headline do LinkedIn aceita');
+  });
+
+  it('perfil do LinkedIn é medido', () => {
+    const dossier = buildDossier(
+      fromText(comResumo, { context: { ...EMPTY_CONTEXT, artifact: 'linkedin' } }),
+    );
+    expect(dossier).toContain('O campo "Sobre" do LinkedIn aceita');
+    expect(dossier).toContain('o headline do LinkedIn aceita');
+  });
+
+  it('com os dois documentos, também mede', () => {
+    const dossier = buildDossier(
+      fromText(comResumo, { context: { ...EMPTY_CONTEXT, artifact: 'ambos' } }),
+    );
+    expect(dossier).toContain('O campo "Sobre" do LinkedIn aceita');
+  });
+
+  it.each([
+    ['linkedin', 'O currículo não foi'],
+    ['curriculo', 'O perfil do LinkedIn não foi'],
+  ] as const)('com só %s, manda declarar o que não pôde avaliar', (artifact, aviso) => {
+    const dossier = buildDossier(input({ context: { ...EMPTY_CONTEXT, artifact } }));
+    expect(dossier).toContain('Veio só um documento');
+    expect(dossier.replace(/\n> /g, ' ')).toContain(aviso);
+  });
+
+  it('com os dois, não avisa de documento ausente', () => {
+    const dossier = buildDossier(input({ context: { ...EMPTY_CONTEXT, artifact: 'ambos' } }));
+    expect(dossier).not.toContain('Veio só um documento');
   });
 });

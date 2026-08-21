@@ -24,7 +24,26 @@ import {
 export const LEVELS = ['Júnior', 'Pleno', 'Sênior', 'Especialista', 'Gestor', 'Diretor'] as const;
 export type Level = (typeof LEVELS)[number];
 
+/**
+ * Tipo de artefato, que a Fase 1 do prompt classifica primeiro.
+ *
+ * Muda as convenções (currículo BR aceita foto, LinkedIn não), muda quais
+ * limites de caractere existem, e muda o que o modelo deve declarar como
+ * não avaliado quando só vem um dos dois documentos.
+ */
+export type ArtifactKind = 'linkedin' | 'curriculo' | 'ambos';
+
+export const ARTIFACT_LABEL: Record<ArtifactKind, string> = {
+  linkedin: 'Perfil do LinkedIn',
+  curriculo: 'Currículo',
+  ambos: 'Perfil do LinkedIn e currículo',
+};
+
+/** Só o LinkedIn trunca campo. Num currículo em PDF esse limite não existe. */
+export const hasLinkedIn = (artifact: ArtifactKind) => artifact !== 'curriculo';
+
 export type CareerContext = {
+  artifact: ArtifactKind;
   targetRole: string;
   targetLevel: Level | '';
   industry: string;
@@ -34,6 +53,7 @@ export type CareerContext = {
 };
 
 export const EMPTY_CONTEXT: CareerContext = {
+  artifact: 'curriculo',
   targetRole: '',
   targetLevel: '',
   industry: '',
@@ -98,6 +118,9 @@ function contextBlock(context: CareerContext): string {
   const lines = [
     '## Respostas antecipadas às perguntas da Fase 3',
     '',
+    // A Fase 1 classifica o tipo de artefato antes de qualquer coisa. Aqui
+    // ele vem declarado: as convenções aplicáveis dependem disso.
+    field('Tipo de artefato', ARTIFACT_LABEL[context.artifact]),
     field('Cargo-alvo', context.targetRole),
     field('Nível-alvo', context.targetLevel),
     field('Setor / tipo de empregador', context.industry),
@@ -112,6 +135,19 @@ function contextBlock(context: CareerContext): string {
       '> não siga para a reescrita sem direção: derive de 2 a 3 direções',
       '> plausíveis a partir do histórico, descreva cada uma em uma linha e',
       '> peça que ela escolha uma ou proponha uma quarta.',
+    );
+  }
+
+  // O prompt manda trabalhar com o que veio e sinalizar o que não pôde
+  // avaliar. Sem o tipo declarado, o modelo adivinha — e adivinha errado
+  // justamente quando o documento é curto.
+  if (context.artifact !== 'ambos') {
+    const ausente = context.artifact === 'linkedin' ? 'o currículo' : 'o perfil do LinkedIn';
+    lines.push(
+      '',
+      `> **Veio só um documento.** ${ausente[0].toUpperCase()}${ausente.slice(1)} não foi`,
+      '> fornecido. Trabalhe com o que tem e diga explicitamente, uma vez, o que',
+      '> não pôde ser avaliado por causa disso.',
     );
   }
 
@@ -216,10 +252,15 @@ function findingsBlock(input: DossierInput): string {
       : '- **Dados pessoais encontrados:** nenhum',
   );
 
-  const resumo = input.sections
-    .filter((s) => s.kind === 'resumo')
-    .map(bodyOf)
-    .join('\n');
+  // Limite de caractere é achado de LinkedIn. Medir um currículo em PDF
+  // contra os 2600 do campo "Sobre" seria entregar como calculado uma
+  // restrição que não existe naquele documento.
+  const resumo = hasLinkedIn(input.context.artifact)
+    ? input.sections
+        .filter((s) => s.kind === 'resumo')
+        .map(bodyOf)
+        .join('\n')
+    : '';
   if (resumo !== '') {
     const about = checkField('about', resumo);
     lines.push(
@@ -229,7 +270,7 @@ function findingsBlock(input: DossierInput): string {
   }
 
   const headline = input.sections
-    .filter((s) => s.kind === 'header')
+    .filter((s) => hasLinkedIn(input.context.artifact) && s.kind === 'header')
     .flatMap((s) => bodyOf(s).split('\n').slice(1))
     .map((l) => l.trim())
     .find((l) => l !== '');

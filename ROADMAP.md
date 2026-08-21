@@ -107,6 +107,7 @@ e anote o que incomoda. Essa lista vale mais que este roadmap.
 
 ## Sprints 5–6 — Matching semântico · 10h · semanas de 28/09 e 05/10
 
+- [ ] Importador do export de dados do LinkedIn (Configurações → Privacidade → Obter cópia dos seus dados): `Profile.csv`, `Positions.csv`, `Skills.csv`, `Education.csv`. Campo separado em vez de heurística de seção — mata a maior fonte de erro do app para quem usa LinkedIn
 - [ ] Worker Transformers.js + `all-MiniLM-L6-v2` em WASM
 - [ ] Extração de termos das vagas coladas (frequência + n-gramas)
 - [ ] **Match literal primeiro.** Cosine similarity só para agrupar sinônimos e variações morfológicas
