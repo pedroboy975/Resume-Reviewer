@@ -137,3 +137,47 @@ export function sectionText(sections: Section[], kind: SectionKind): string {
     .filter((t) => t !== '')
     .join('\n');
 }
+
+/**
+ * A qual seção pertence cada linha do texto.
+ *
+ * É a forma que a UI de correção precisa: o usuário seleciona linhas e troca
+ * a seção delas. Reatribuir vira uma edição neste vetor, e as seções são
+ * recalculadas a partir dele.
+ */
+export function assignLines(text: string): SectionKind[] {
+  const lines = text.split('\n');
+  const assignment: SectionKind[] = new Array(lines.length).fill('header');
+
+  let current: SectionKind = 'header';
+  lines.forEach((line, i) => {
+    const kind = headingKind(line);
+    if (kind) current = kind;
+    assignment[i] = current;
+  });
+
+  return assignment;
+}
+
+export type AssignedSection = {
+  kind: SectionKind;
+  /** Índices de linha, inclusivos. */
+  from: number;
+  to: number;
+  text: string;
+};
+
+/** Linhas consecutivas com a mesma seção viram um bloco. */
+export function groupAssignedLines(lines: string[], assignment: SectionKind[]): AssignedSection[] {
+  const groups: AssignedSection[] = [];
+  lines.forEach((line, i) => {
+    const last = groups[groups.length - 1];
+    if (last && last.kind === assignment[i]) {
+      last.to = i;
+      last.text += `\n${line}`;
+    } else {
+      groups.push({ kind: assignment[i], from: i, to: i, text: line });
+    }
+  });
+  return groups;
+}

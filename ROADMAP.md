@@ -53,11 +53,11 @@ com precisão total e zero VRAM.
 
 ## Sprint 3 — UI de correção · 5h · semana de 14/09
 
-- [ ] Upload + progresso
-- [ ] Vista lado a lado: texto extraído à esquerda, seções detectadas à direita
-- [ ] Usuário reatribui trechos entre seções (o parser vai errar)
-- [ ] Painel de PII detectada
-- [ ] Timeline com lacunas marcadas
+- [x] Upload + progresso página a página
+- [x] Vista lado a lado: texto extraído à esquerda, seções montadas à direita
+- [x] Usuário reatribui trechos entre seções: clique na linha, shift+clique estende, botão escolhe a seção
+- [x] Painel de PII detectada — tipo e quantidade, nunca o valor
+- [x] Timeline com lacunas marcadas, montada só sobre as linhas atribuídas a Experiência
 
 **Pronto quando:** você corrige um fixture mal-parseado em menos de 1 minuto.
 

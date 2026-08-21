@@ -7,7 +7,7 @@
  * Ver CLAUDE.md > "Nada pesado na main thread".
  */
 
-import { extractPages } from './pdf';
+import { extractPages, type OnProgress } from './pdf';
 import { documentToText, type Page } from './layout';
 
 async function loadPdfjs() {
@@ -20,14 +20,14 @@ async function loadPdfjs() {
 }
 
 /** Páginas com posições, a partir do arquivo escolhido pelo usuário. */
-export async function readPdf(file: File): Promise<Page[]> {
+export async function readPdf(file: File, onProgress?: OnProgress): Promise<Page[]> {
   const pdfjs = await loadPdfjs();
   const data = new Uint8Array(await file.arrayBuffer());
   const doc = await pdfjs.getDocument({ data }).promise;
-  return extractPages(doc as never);
+  return extractPages(doc as never, onProgress);
 }
 
 /** Atalho: arquivo → texto em ordem de leitura. */
-export async function readPdfText(file: File): Promise<string> {
-  return documentToText(await readPdf(file));
+export async function readPdfText(file: File, onProgress?: OnProgress): Promise<string> {
+  return documentToText(await readPdf(file, onProgress));
 }

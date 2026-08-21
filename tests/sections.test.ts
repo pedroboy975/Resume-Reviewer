@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { splitSections, sectionText, type SectionKind } from '@/lib/sections';
+import {
+  assignLines,
+  groupAssignedLines,
+  sectionText,
+  splitSections,
+  type SectionKind,
+} from '@/lib/sections';
 import { fixtureNames, fixtureText } from './helpers/fixtures';
 
 const kindsOf = (text: string): SectionKind[] => splitSections(text).map((s) => s.kind);
@@ -84,5 +90,67 @@ describe.each(fixtureNames)('%s', (file) => {
     // Título demais é sinal de heurística frouxa pegando texto corrido.
     const sections = splitSections(await fixtureText(file));
     expect(sections.length).toBeLessThanOrEqual(12);
+  });
+});
+
+describe('assignLines', () => {
+  it('dá uma seção para cada linha, título incluído', () => {
+    const text = 'Fulano\nEXPERIÊNCIA\nEmpresa X\nFORMAÇÃO\nFaculdade Y';
+    expect(assignLines(text)).toEqual([
+      'header',
+      'experiencia',
+      'experiencia',
+      'formacao',
+      'formacao',
+    ]);
+  });
+
+  it('linha em branco herda a seção corrente', () => {
+    expect(assignLines('Nome\nEXPERIÊNCIA\n\nEmpresa X')).toEqual([
+      'header',
+      'experiencia',
+      'experiencia',
+      'experiencia',
+    ]);
+  });
+
+  it('concorda com splitSections sobre onde cada seção começa', async () => {
+    for (const file of fixtureNames) {
+      const text = await fixtureText(file);
+      const assignment = assignLines(text);
+      for (const section of splitSections(text)) {
+        if (!section.heading) continue;
+        // Índice da linha em que a seção abre = quantas quebras vêm antes dela.
+        const line = text.slice(0, section.start).split('\n').length - 1;
+        expect(assignment[line], `${file}: ${section.heading}`).toBe(section.kind);
+      }
+    }
+  });
+});
+
+describe('groupAssignedLines', () => {
+  it('junta linhas consecutivas da mesma seção', () => {
+    const lines = ['Nome', 'EXPERIÊNCIA', 'Empresa X'];
+    expect(groupAssignedLines(lines, ['header', 'experiencia', 'experiencia'])).toEqual([
+      { kind: 'header', from: 0, to: 0, text: 'Nome' },
+      { kind: 'experiencia', from: 1, to: 2, text: 'EXPERIÊNCIA\nEmpresa X' },
+    ]);
+  });
+
+  it('reatribuir uma linha do meio parte o bloco em três', () => {
+    // É o que a UI de correção faz quando o usuário move um trecho de seção.
+    const lines = ['a', 'b', 'c'];
+    const groups = groupAssignedLines(lines, ['experiencia', 'formacao', 'experiencia']);
+    expect(groups.map((g) => [g.kind, g.text])).toEqual([
+      ['experiencia', 'a'],
+      ['formacao', 'b'],
+      ['experiencia', 'c'],
+    ]);
+  });
+
+  it('preserva todas as linhas', () => {
+    const lines = ['a', 'b', 'c', 'd'];
+    const groups = groupAssignedLines(lines, ['header', 'header', 'resumo', 'resumo']);
+    expect(groups.map((g) => g.text).join('\n').split('\n')).toEqual(lines);
   });
 });
