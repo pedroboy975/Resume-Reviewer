@@ -28,7 +28,7 @@ export function PiiPanel({ findings }: { findings: PiiFinding[] }) {
 
   if (counts.length === 0) {
     return (
-      <p className="text-sm text-zinc-500">
+      <p className="text-sm text-ink-dim">
         Nenhum dado pessoal detectado no documento.
       </p>
     );
@@ -36,18 +36,21 @@ export function PiiPanel({ findings }: { findings: PiiFinding[] }) {
 
   return (
     <div className="flex flex-col gap-2">
-      <ul className="flex flex-wrap gap-2">
+      {/* Elemento-assinatura: cada linha imita uma tarja de redação de
+          documento — o retângulo preto cobre o dado, o rótulo em âmbar é a
+          única coisa que sobra legível. */}
+      <ul className="flex flex-col gap-1.5">
         {counts.map(([kind, count]) => (
-          <li
-            key={kind}
-            className="rounded-full border border-amber-400/60 bg-amber-50 px-3 py-1 text-xs text-amber-900 dark:bg-amber-950/40 dark:text-amber-200"
-          >
-            {LABEL[kind]}
-            {count > 1 && <span className="opacity-60"> ×{count}</span>}
+          <li key={kind} className="flex items-center gap-3">
+            <span aria-hidden className="h-4 w-14 shrink-0 rounded-[1px] bg-redaction" />
+            <span className="font-mono text-xs tracking-wide text-amber">
+              {LABEL[kind]}
+              {count > 1 && <span className="text-ink-dim"> ×{count}</span>}
+            </span>
           </li>
         ))}
       </ul>
-      <p className="text-xs text-zinc-500">
+      <p className="text-xs text-ink-dim">
         Já foi tirado do texto. O valor não aparece em nenhuma tela nem em
         nenhum export — só o tipo, uma vez, aqui.
       </p>

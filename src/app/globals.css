@@ -1,28 +1,83 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --color-bg: #0a0806;
+  --color-surface: #14100a;
+  --color-surface-2: #1c1610;
+  --color-ink: #fbf6e9;
+  --color-ink-dim: #c7b99c;
+  --color-border: #453724;
+  --color-amber: #f5b33e;
+  --color-amber-dim: #f5b33e2e;
+  --color-red: #e85a42;
+  --color-red-dim: #e85a422a;
+  --color-green: #63b583;
+  --color-redaction: #000000;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-bg: var(--color-bg);
+  --color-surface: var(--color-surface);
+  --color-surface-2: var(--color-surface-2);
+  --color-ink: var(--color-ink);
+  --color-ink-dim: var(--color-ink-dim);
+  --color-border: var(--color-border);
+  --color-amber: var(--color-amber);
+  --color-amber-dim: var(--color-amber-dim);
+  --color-red: var(--color-red);
+  --color-red-dim: var(--color-red-dim);
+  --color-green: var(--color-green);
+  --color-redaction: var(--color-redaction);
+  --font-sans: var(--font-plex-sans);
+  --font-mono: var(--font-plex-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/*
+ * Identidade única: fundo quase-preto com tinta de âmbar, sem alternância
+ * clara/escura. É a leitura de um dossiê num terminal, não uma UI que se
+ * adapta ao sistema — por isso não há bloco @media (prefers-color-scheme).
+ */
+body {
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+}
+
+/*
+ * Fundo fixo em elemento próprio, não em `background-attachment: fixed` no
+ * body: nesse ambiente `fixed` trava o repaint no Safari de iOS quando a
+ * página é mais alta que a viewport — este projeto pretende rodar em
+ * iPhone (ver ROADMAP). `position: fixed` num elemento evita o bug.
+ *
+ * O véu escuro por cima garante que o padrão fica textura, nunca briga com
+ * o texto — nenhuma seção depende de contraste calculado em cima de um
+ * pixel específico da imagem.
+ */
+.bg-network {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    linear-gradient(color-mix(in srgb, var(--color-bg) 72%, transparent), color-mix(in srgb, var(--color-bg) 72%, transparent)),
+    url('/bg-network.png') center top / cover no-repeat;
+}
+
+::selection {
+  background: var(--color-amber-dim);
+  color: var(--color-amber);
+}
+
+@keyframes move-x {
+  from {
+    transform: translateX(var(--move-x-from));
+  }
+  to {
+    transform: translateX(var(--move-x-to));
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  /* Geist Sans já é baixada via next/font em layout.tsx (--font-geist-sans);
-     forçar Arial aqui paga o download da fonte sem nunca renderizá-la. */
-  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+@media (prefers-reduced-motion: reduce) {
+  .timeline-pill {
+    animation: none !important;
+  }
 }

@@ -12,7 +12,7 @@ type Props = {
 };
 
 const inputClass =
-  'rounded border border-zinc-300 px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-950';
+  'rounded border border-border bg-surface px-2 py-1.5 text-sm text-ink placeholder:text-ink-dim focus:border-amber focus:outline-none';
 
 /**
  * O contexto que a Fase 3 do prompt perguntaria.
@@ -85,7 +85,7 @@ export function ContextForm({ context, jobs, onContext, onJobs }: Props) {
       </label>
 
       {context.targetRole.trim() === '' && (
-        <p className="rounded border border-amber-400/60 bg-amber-50 p-3 text-xs text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+        <p className="rounded border border-amber/40 bg-amber-dim p-3 text-xs text-amber">
           Sem cargo-alvo, a análise sai genérica — que costuma ser justamente o
           problema que se quer resolver. Se você ainda não sabe qual é, tudo bem
           seguir: o dossiê pede que o modelo derive de 2 a 3 direções plausíveis
@@ -95,8 +95,8 @@ export function ContextForm({ context, jobs, onContext, onJobs }: Props) {
 
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-medium">Vagas-alvo</h3>
-          <span className="text-xs text-zinc-500">
+          <h3 className="text-sm font-medium text-ink">Vagas-alvo</h3>
+          <span className="text-xs text-ink-dim">
             de 2 a 5, com o texto colado — link de vaga o modelo não abre
           </span>
         </div>
@@ -107,7 +107,7 @@ export function ContextForm({ context, jobs, onContext, onJobs }: Props) {
             value={job}
             onChange={(e) => onJobs(jobs.map((j, k) => (k === i ? e.target.value : j)))}
             placeholder={`Vaga ${i + 1}: cole aqui a descrição inteira`}
-            className="min-h-24 rounded border border-zinc-300 p-2 font-mono text-xs dark:border-zinc-700 dark:bg-zinc-950"
+            className="min-h-24 rounded border border-border bg-surface p-2 font-mono text-xs text-ink placeholder:text-ink-dim focus:border-amber focus:outline-none"
           />
         ))}
 
@@ -116,7 +116,7 @@ export function ContextForm({ context, jobs, onContext, onJobs }: Props) {
             type="button"
             disabled={jobs.length >= MAX_JOBS}
             onClick={() => onJobs([...jobs, ''])}
-            className="rounded border border-zinc-300 px-2 py-1 text-xs enabled:hover:bg-zinc-100 disabled:opacity-40 dark:border-zinc-700 dark:enabled:hover:bg-zinc-900"
+            className="rounded border border-border px-2 py-1 text-xs text-ink-dim enabled:hover:border-amber/40 enabled:hover:text-amber disabled:opacity-40"
           >
             Mais uma vaga
           </button>
@@ -124,7 +124,7 @@ export function ContextForm({ context, jobs, onContext, onJobs }: Props) {
             <button
               type="button"
               onClick={() => onJobs(jobs.slice(0, -1))}
-              className="rounded border border-zinc-300 px-2 py-1 text-xs hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-900"
+              className="rounded border border-border px-2 py-1 text-xs text-ink-dim hover:border-amber/40 hover:text-amber"
             >
               Menos uma
             </button>

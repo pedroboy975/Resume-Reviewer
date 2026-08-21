@@ -29,7 +29,7 @@ type Props = {
 export function SourcePicker({ value, onChange }: Props) {
   return (
     <div className="flex flex-col gap-2">
-      <span className="text-sm">O que você vai analisar?</span>
+      <span className="text-sm text-ink">O que você vai analisar?</span>
 
       <div className="flex flex-wrap gap-2">
         {KINDS.map((kind) => (
@@ -38,10 +38,10 @@ export function SourcePicker({ value, onChange }: Props) {
             type="button"
             aria-pressed={value === kind}
             onClick={() => onChange(kind)}
-            className={`rounded border px-3 py-1.5 text-sm ${
+            className={`rounded border px-3 py-1.5 text-sm transition-colors ${
               value === kind
-                ? 'border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-black'
-                : 'border-zinc-300 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-900'
+                ? 'border-amber bg-amber-dim text-amber'
+                : 'border-border text-ink-dim hover:border-amber/40 hover:text-ink'
             }`}
           >
             {ARTIFACT_LABEL[kind]}
@@ -49,7 +49,7 @@ export function SourcePicker({ value, onChange }: Props) {
         ))}
       </div>
 
-      <p className="text-xs text-zinc-500">{HOW[value]}</p>
+      <p className="text-xs text-ink-dim">{HOW[value]}</p>
     </div>
   );
 }

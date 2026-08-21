@@ -29,7 +29,7 @@ type Row = {
  */
 export function Timeline({ data }: { data: TimelineData }) {
   if (data.bars.length === 0) {
-    return <p className="text-sm text-zinc-500">Nenhum período reconhecido na experiência.</p>;
+    return <p className="text-sm text-ink-dim">Nenhum período reconhecido na experiência.</p>;
   }
 
   const rows: Row[] = [
@@ -51,7 +51,7 @@ export function Timeline({ data }: { data: TimelineData }) {
 
   return (
     <div className="flex flex-col gap-2 text-xs">
-      <div className="flex justify-between text-zinc-500">
+      <div className="flex justify-between text-ink-dim">
         <span>{fmt(data.from)}</span>
         <span>
           {data.bars.length} períodos · {duration(data.months)} de carreira
@@ -64,20 +64,16 @@ export function Timeline({ data }: { data: TimelineData }) {
           // Fragment com três filhos: cada linha ocupa as três colunas do grid
           // externo. Sem wrapper, sem subgrid.
           <Fragment key={i}>
-            <span
-              className={`tabular-nums ${row.gap ? 'text-red-600 dark:text-red-400' : 'text-zinc-500'}`}
-            >
+            <span className={`tabular-nums ${row.gap ? 'text-red' : 'text-ink-dim'}`}>
               {row.label}
             </span>
-            <span className={row.gap ? 'text-red-600 dark:text-red-400' : 'text-zinc-400'}>
-              {row.detail}
-            </span>
+            <span className={row.gap ? 'text-red' : 'text-ink-dim'}>{row.detail}</span>
             <div className="relative h-5">
               <div
                 className={
                   row.gap
-                    ? 'absolute h-5 rounded border border-dashed border-red-400 bg-red-500/10'
-                    : 'absolute h-5 rounded bg-zinc-800 dark:bg-zinc-200'
+                    ? 'absolute h-5 rounded border border-dashed border-red bg-red-dim'
+                    : 'absolute h-5 rounded bg-amber'
                 }
                 style={{ left: `${row.leftPct}%`, width: `${row.widthPct}%` }}
               />
