@@ -9,14 +9,22 @@
 import raw from '../../docs/prompt_agente_analise_carreira.md?raw';
 
 /**
- * O prompt mora dentro de uma cerca de código no markdown, para poder ser
- * copiado inteiro sem o título e as notas em volta.
+ * O conteúdo da primeira cerca de código do markdown.
+ *
+ * O prompt mora dentro de uma cerca para poder ser copiado inteiro sem o
+ * título e as notas em volta. A cerca de fechamento é a próxima linha que
+ * seja só o marcador — não a última do arquivo. Um segundo bloco de código
+ * adicionado ao documento passaria despercebido com `lastIndexOf`, e o
+ * prompt sairia com texto que não é dele no meio.
  */
 export function extractFenced(markdown: string): string {
-  const first = markdown.indexOf('```');
-  const last = markdown.lastIndexOf('```');
-  if (first === -1 || last === first) return markdown.trim();
-  return markdown.slice(markdown.indexOf('\n', first) + 1, last).trim();
+  const lines = markdown.split('\n');
+  const open = lines.findIndex((line) => line.trimEnd() === '```');
+  if (open === -1) return markdown.trim();
+
+  const close = lines.findIndex((line, i) => i > open && line.trimEnd() === '```');
+  const body = close === -1 ? lines.slice(open + 1) : lines.slice(open + 1, close);
+  return body.join('\n').trim();
 }
 
 export const CAREER_PROMPT = extractFenced(raw);

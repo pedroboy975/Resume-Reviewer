@@ -182,7 +182,14 @@ export function groupAssignedLines(lines: string[], assignment: SectionKind[]): 
   return groups;
 }
 
-/** Ordem canônica das seções no dossiê. Currículo não sai na ordem do PDF. */
+/**
+ * Ordem canônica das seções no dossiê. Currículo não sai na ordem do PDF.
+ *
+ * `contato` não está aqui de propósito: é a seção onde mora o dado pessoal, e
+ * redigir não basta — o que os regexes de `pii.ts` não pegam (handle, cidade,
+ * perfil) sairia junto. A seção inteira fica fora do que deixa o app.
+ * Ver CLAUDE.md > PII.
+ */
 export const SECTION_ORDER: SectionKind[] = [
   'header',
   'resumo',
@@ -192,5 +199,30 @@ export const SECTION_ORDER: SectionKind[] = [
   'certificacoes',
   'idiomas',
   'outros',
-  'contato',
 ];
+
+/** Nome de cada seção em português. Vale para a UI e para o dossiê. */
+export const SECTION_LABEL: Record<SectionKind, string> = {
+  header: 'Cabeçalho',
+  contato: 'Contato',
+  resumo: 'Resumo',
+  experiencia: 'Experiência',
+  formacao: 'Formação',
+  competencias: 'Competências',
+  idiomas: 'Idiomas',
+  certificacoes: 'Certificações',
+  outros: 'Outros',
+};
+
+/**
+ * Todo o texto atribuído a Experiência.
+ *
+ * Existe porque três lugares precisavam do mesmo encadeamento — a página, o
+ * dossiê e os testes — e datas de formação ou de certificado entrando aqui
+ * abrem lacuna de emprego que não existe.
+ */
+export const experienceText = (sections: AssignedSection[]): string =>
+  sections
+    .filter((s) => s.kind === 'experiencia')
+    .map((s) => s.text)
+    .join('\n');

@@ -23,12 +23,18 @@ imaginário e descobre no Sprint 3 que o parser não serve.
 
 ## Sprint 1 — Extração · 5h · semana de 31/08
 
-- [x] `pdfjs-dist`, texto + posição (x, y, altura). Sem worker próprio: o `pdfjs` já parseia no worker dele e a reconstrução custa milissegundos
-- [x] Detecção de layout de duas colunas por calha vazia em x (`findGutter`)
-- [x] Reconstrução em ordem de leitura, com cabeçalho que atravessa a calha cortando a página em blocos
+- [x] Worker com `pdfjs-dist`, texto + posição (x, y, fontSize)
+- [x] Detecção de layout de duas colunas por clustering de x
+- [x] Reconstrução em ordem de leitura
 - [x] Entrada alternativa: textarea para colar LinkedIn
 
 **Pronto quando:** os 5 fixtures saem em texto legível e na ordem certa.
+
+**Desvios:** sem worker próprio — o `pdfjs` já parseia dentro do worker dele
+e a reconstrução de layout custa milissegundos. Duas colunas saem por calha
+vazia em x (`findGutter`), não por clustering: a calha é a faixa que nenhum
+item atravessa, e cabeçalho largo corta a página em blocos horizontais.
+A posição usada é a altura da fonte, não o `fontSize` declarado.
 
 Layout de duas colunas é onde o `pdfjs` te trai. Se um fixture quebrar,
 resolva agora — todo o resto herda o erro.
@@ -39,12 +45,19 @@ resolva agora — todo o resto herda o erro.
 
 TypeScript puro em `src/lib/`. Nenhum modelo envolvido.
 
-- [x] `pii.ts` — e-mail (inclusive quebrado em duas linhas pela barra lateral do LinkedIn), telefone BR/intl, CPF, RG, CEP, endereço, data de nascimento, idade, estado civil, sexo. Retorna texto redigido + lista do que achou
-- [x] `dates.ts` — parse de períodos PT/EN (`jan/2020 – atual`, `2018-2021`, `Agosto/2013 á Março/2014`), lacunas e permanências curtas em meses
-- [x] `sections.ts` — slicing em Cabeçalho / Contato / Resumo / Experiência / Formação / Competências / Idiomas / Certificações. Só palavra-chave e formato da linha: a entrada por textarea não tem informação de fonte, e precisa funcionar igual
+- [x] `pii.ts` — regex para telefone BR/intl, e-mail, CPF, CEP, data de nascimento, estado civil. Retorna texto redigido + lista do que achou
+- [x] `dates.ts` — parse de períodos PT/EN (`jan/2020 – atual`, `2018-2021`), cálculo de lacunas e permanências curtas em ms
+- [x] `sections.ts` — slicing em Header / Resumo / Experiência / Formação / Competências por heurística de heading (fontSize + keywords)
 - [x] `limits.ts` — contagem de caracteres por campo. Headline LinkedIn = 220, About = 2600
 
 **Pronto quando:** cada módulo tem teste contra os 5 fixtures.
+
+**Desvios:** `pii.ts` ganhou RG, endereço, idade e sexo além da lista, porque
+os fixtures traziam os quatro. `dates.ts` trabalha em meses, não em ms —
+currículo não declara dia. `sections.ts` usa só palavra-chave e formato da
+linha, sem `fontSize`: a entrada por textarea não tem informação de fonte
+nenhuma e precisa funcionar igual. Ele fatia mais que os cinco tipos
+previstos — Contato, Idiomas e Certificações também.
 
 Isso já cobre três itens do grupo "Lacunas" da Fase 2 do prompt,
 com precisão total e zero VRAM.
@@ -53,26 +66,39 @@ com precisão total e zero VRAM.
 
 ## Sprint 3 — UI de correção · 5h · semana de 14/09
 
-- [x] Upload + progresso página a página
-- [x] Vista lado a lado: texto extraído à esquerda, seções montadas à direita
-- [x] Usuário reatribui trechos entre seções: clique na linha, shift+clique estende, botão escolhe a seção
-- [x] Painel de PII detectada — tipo e quantidade, nunca o valor
-- [x] Timeline com lacunas marcadas, montada só sobre as linhas atribuídas a Experiência
+- [x] Upload + progresso
+- [x] Vista lado a lado: texto extraído à esquerda, seções detectadas à direita
+- [x] Usuário reatribui trechos entre seções (o parser vai errar)
+- [x] Painel de PII detectada
+- [x] Timeline com lacunas marcadas
 
 **Pronto quando:** você corrige um fixture mal-parseado em menos de 1 minuto.
+Ainda não verificado no navegador — falta o teste com clique.
+
+**Desvios:** o painel de PII mostra tipo e quantidade, nunca o valor, e a
+timeline é montada só sobre as linhas atribuídas a Experiência — datas de
+formação abririam lacunas que não são de emprego.
 
 ---
 
 ## Sprint 4 — v0 utilizável · 5h · semana de 21/09 · **MARCO**
 
 - [x] Formulário de contexto: cargo-alvo, nível-alvo, setor, país, restrições de divulgação
-- [x] Se o usuário não souber o cargo-alvo: campo livre + aviso de que a análise sai genérica sem isso, e o dossiê manda o modelo derivar de 2 a 3 direções antes de reescrever
+- [x] Se o usuário não souber o cargo-alvo: campo livre + aviso de que a análise sai genérica sem isso. A derivação automática de direções fica para o Sprint 8
 - [x] Colar de 2 a 5 vagas-alvo (texto, não link)
 - [x] Montador que gera o dossiê estruturado + prompt completo → clipboard
 - [x] Export em `.md`
 
 **Pronto quando:** você e um amigo rodam uma análise completa de ponta a ponta
 colando o output em qualquer chat, e o resultado é melhor que colar o PDF cru.
+Ainda não verificado com uma pessoa de fora.
+
+**Desvios:** sem cargo-alvo, o dossiê não deriva direção nenhuma — ele
+instrui o modelo a derivar, que é texto estático e não a derivação automática
+do Sprint 8. O piso de 2 vagas não é imposto pela interface: uma vaga só
+gera dossiê, com aviso de que o vocabulário é de uma empresa. E o formulário
+cobre 5 das 6 prioridades da Fase 3 — números reais e ambiguidades de
+histórico continuam sendo pergunta do modelo, sinalizada no dossiê.
 
 A partir daqui você tem produto. Pare, use por duas semanas antes do Sprint 5,
 e anote o que incomoda. Essa lista vale mais que este roadmap.

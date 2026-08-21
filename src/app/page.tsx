@@ -3,7 +3,12 @@
 import { useMemo, useState } from 'react';
 import { readPdfText } from '@/lib/pdf-client';
 import { redact, type PiiFinding } from '@/lib/pii';
-import { assignLines, groupAssignedLines, type SectionKind } from '@/lib/sections';
+import {
+  assignLines,
+  experienceText,
+  groupAssignedLines,
+  type SectionKind,
+} from '@/lib/sections';
 import { findGaps, parsePeriods, shortTenures } from '@/lib/dates';
 import { buildTimeline } from '@/lib/timeline';
 import { buildDossier, EMPTY_CONTEXT, type CareerContext } from '@/lib/dossier';
@@ -51,20 +56,7 @@ export default function Home() {
   const lines = useMemo(() => text.split('\n'), [text]);
   const sections = useMemo(() => groupAssignedLines(lines, assignment), [lines, assignment]);
 
-  /**
-   * Só a experiência entra nas datas: períodos de formação e de certificado
-   * abririam lacunas que não são lacunas de emprego.
-   */
-  const periods = useMemo(
-    () =>
-      parsePeriods(
-        sections
-          .filter((s) => s.kind === 'experiencia')
-          .map((s) => s.text)
-          .join('\n'),
-      ),
-    [sections],
-  );
+  const periods = useMemo(() => parsePeriods(experienceText(sections)), [sections]);
 
   const gaps = useMemo(() => findGaps(periods), [periods]);
   const timeline = useMemo(() => buildTimeline(periods, gaps), [periods, gaps]);
@@ -104,14 +96,22 @@ export default function Home() {
     setTimeout(() => setCopied(false), 2000);
   }
 
-  /** Download client-side: o arquivo é montado na memória do navegador. */
+  /**
+   * Download client-side: o arquivo é montado na memória do navegador.
+   *
+   * O link entra no documento antes do clique e a URL só é liberada no tick
+   * seguinte. Revogar na mesma linha do `click()` é corrida: o navegador
+   * ainda não começou a ler o blob, e o download sai vazio ou nem sai.
+   */
   function download() {
     const url = URL.createObjectURL(new Blob([dossier], { type: 'text/markdown' }));
     const link = document.createElement('a');
     link.href = url;
     link.download = 'dossie-carreira.md';
+    document.body.append(link);
     link.click();
-    URL.revokeObjectURL(url);
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
   }
 
   return (

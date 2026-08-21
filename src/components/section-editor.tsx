@@ -1,18 +1,6 @@
 'use client';
 
-import { groupAssignedLines, type SectionKind } from '@/lib/sections';
-
-export const SECTION_LABEL: Record<SectionKind, string> = {
-  header: 'Cabeçalho',
-  contato: 'Contato',
-  resumo: 'Resumo',
-  experiencia: 'Experiência',
-  formacao: 'Formação',
-  competencias: 'Competências',
-  idiomas: 'Idiomas',
-  certificacoes: 'Certificações',
-  outros: 'Outros',
-};
+import { groupAssignedLines, SECTION_LABEL, type SectionKind } from '@/lib/sections';
 
 const KINDS = Object.keys(SECTION_LABEL) as SectionKind[];
 

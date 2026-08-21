@@ -3,7 +3,7 @@ import { buildDossier, EMPTY_CONTEXT, type DossierInput } from '@/lib/dossier';
 import { CAREER_PROMPT } from '@/lib/prompt';
 import { findGaps, parsePeriods, shortTenures } from '@/lib/dates';
 import { findPii } from '@/lib/pii';
-import { assignLines, groupAssignedLines } from '@/lib/sections';
+import { assignLines, experienceText, groupAssignedLines } from '@/lib/sections';
 
 const NOW = new Date('2026-08-21');
 
@@ -23,11 +23,7 @@ const input = (over: Partial<DossierInput> = {}): DossierInput => ({
 function fromText(text: string, over: Partial<DossierInput> = {}) {
   const lines = text.split('\n');
   const sections = groupAssignedLines(lines, assignLines(text));
-  const experiencia = sections
-    .filter((s) => s.kind === 'experiencia')
-    .map((s) => s.text)
-    .join('\n');
-  const periods = parsePeriods(experiencia);
+  const periods = parsePeriods(experienceText(sections));
   return input({
     sections,
     pii: findPii(text),
@@ -193,5 +189,47 @@ describe('buildDossier · documento', () => {
 
   it('não cria seção vazia', () => {
     expect(buildDossier(fromText('Nome\nIDIOMAS\n'))).not.toContain('### Idiomas');
+  });
+});
+
+describe('buildDossier · seção de contato', () => {
+  const text = ['Fulano de Tal', 'CONTATO', 'linkedin.com/in/fulano', 'Belo Horizonte'].join('\n');
+
+  it('não entra no dossiê, nem redigida', () => {
+    // Redigir não basta: handle, cidade e perfil não casam com nenhum padrão
+    // de pii.ts e sairiam junto. Ver CLAUDE.md > PII.
+    const dossier = buildDossier(fromText(text));
+    expect(dossier).not.toContain('### Contato');
+    expect(dossier).not.toContain('linkedin.com/in/fulano');
+  });
+
+  it('o resto do documento continua saindo', () => {
+    expect(buildDossier(fromText(text))).toContain('Fulano de Tal');
+  });
+});
+
+describe('buildDossier · o que o formulário não coletou', () => {
+  it('manda perguntar números reais e ambiguidades de histórico', () => {
+    const dossier = buildDossier(input());
+    expect(dossier).toContain('Ainda não perguntado');
+    expect(dossier).toContain('números reais dos');
+    expect(dossier).toContain('ambiguidades de histórico');
+  });
+
+  it('com uma vaga só, avisa que o vocabulário é de uma empresa', () => {
+    const dossier = buildDossier(input({ jobs: ['Vaga única'] }));
+    expect(dossier).toContain('Só uma vaga');
+  });
+
+  it('com duas vagas, não avisa', () => {
+    expect(buildDossier(input({ jobs: ['Vaga A', 'Vaga B'] }))).not.toContain('Só uma vaga');
+  });
+});
+
+describe('buildDossier · duração por extenso', () => {
+  it('concorda em número', () => {
+    const dossier = buildDossier(fromText('Nome\nEXPERIÊNCIA\nA: 01/2015 - 02/2016'));
+    expect(dossier).toContain('1 ano e 1 mês');
+    expect(dossier).not.toContain('1 meses');
   });
 });

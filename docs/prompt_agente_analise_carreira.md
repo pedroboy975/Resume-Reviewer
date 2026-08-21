@@ -183,8 +183,8 @@ Os 3 cargos mais importantes, 3-5 bullets cada.
 Formato: Ação + Ferramenta/Método + Problema + Resultado mensurável.
 Lidere pelo resultado onde houver resultado. Só números confirmados na Fase 3.
 Ordene os bullets dentro de cada cargo: o projeto ou o resultado mais forte 
-abre. Quem lê para nos dois primeiros, e o que ficou no fim do bloco não foi 
-lido.
+abre. Quem lê costuma parar nos dois primeiros bullets: o que ficou no fim do 
+bloco não foi lido.
 Não repita a mesma âncora de escala em bullets consecutivos — dois fatos 
 distintos com a mesma expressão de porte parecem cópia, não dois fatos.
 

@@ -9,7 +9,7 @@ import { describe, it, expect } from 'vitest';
 import { findGaps, parsePeriods, shortTenures } from '@/lib/dates';
 import { buildDossier, EMPTY_CONTEXT } from '@/lib/dossier';
 import { findPii, redact } from '@/lib/pii';
-import { assignLines, groupAssignedLines } from '@/lib/sections';
+import { assignLines, experienceText, groupAssignedLines } from '@/lib/sections';
 import { fixtureNames, fixtureText } from './helpers/fixtures';
 
 const NOW = new Date('2026-08-21');
@@ -18,12 +18,7 @@ async function analyze(file: string) {
   const raw = await fixtureText(file);
   const { text, findings } = redact(raw);
   const sections = groupAssignedLines(text.split('\n'), assignLines(text));
-  const periods = parsePeriods(
-    sections
-      .filter((s) => s.kind === 'experiencia')
-      .map((s) => s.text)
-      .join('\n'),
-  );
+  const periods = parsePeriods(experienceText(sections));
   return {
     raw,
     findings,

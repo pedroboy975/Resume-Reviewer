@@ -35,3 +35,16 @@ describe('CAREER_PROMPT', () => {
     expect(CAREER_PROMPT.endsWith('```')).toBe(false);
   });
 });
+
+describe('extractFenced · segunda cerca', () => {
+  it('pega o primeiro bloco, não do primeiro ao último marcador', () => {
+    // Um segundo bloco de código adicionado ao documento entraria no prompt
+    // sem ninguém perceber se o fechamento fosse a última cerca do arquivo.
+    const markdown = ['# Título', '', '```', 'o prompt', '```', '', 'Nota.', '', '```', 'exemplo', '```'].join('\n');
+    expect(extractFenced(markdown)).toBe('o prompt');
+  });
+
+  it('cerca sem fechamento vai até o fim do arquivo', () => {
+    expect(extractFenced('# Título\n\n```\no prompt')).toBe('o prompt');
+  });
+});

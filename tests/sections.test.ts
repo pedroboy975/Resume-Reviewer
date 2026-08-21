@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   assignLines,
   groupAssignedLines,
+  experienceText,
   sectionText,
   splitSections,
   type SectionKind,
@@ -152,5 +153,18 @@ describe('groupAssignedLines', () => {
     const lines = ['a', 'b', 'c', 'd'];
     const groups = groupAssignedLines(lines, ['header', 'header', 'resumo', 'resumo']);
     expect(groups.map((g) => g.text).join('\n').split('\n')).toEqual(lines);
+  });
+});
+
+describe('experienceText', () => {
+  it('junta só o que está atribuído a Experiência', () => {
+    const lines = ['Nome', 'EXPERIÊNCIA', 'Empresa A', 'FORMAÇÃO', 'Faculdade'];
+    const sections = groupAssignedLines(lines, assignLines(lines.join('\n')));
+    expect(experienceText(sections)).toBe('EXPERIÊNCIA\nEmpresa A');
+  });
+
+  it('sem experiência, devolve vazio', () => {
+    const lines = ['Nome', 'FORMAÇÃO', 'Faculdade'];
+    expect(experienceText(groupAssignedLines(lines, assignLines(lines.join('\n'))))).toBe('');
   });
 });

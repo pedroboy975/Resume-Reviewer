@@ -10,10 +10,11 @@
 
 import { durationMonths, type Gap, type Period, type YearMonth } from './dates';
 import { checkField, countChars, LINKEDIN } from './limits';
-import { redact, summarizePii, type PiiFinding } from './pii';
+import { redact, summarizePii, type PiiFinding, type PiiKind } from './pii';
 import { CAREER_PROMPT } from './prompt';
 import {
   detectHeading,
+  SECTION_LABEL,
   SECTION_ORDER,
   type AssignedSection,
   type SectionKind,
@@ -52,19 +53,7 @@ export type DossierInput = {
   now?: Date;
 };
 
-const SECTION_TITLE: Record<SectionKind, string> = {
-  header: 'Cabeçalho',
-  contato: 'Contato',
-  resumo: 'Resumo',
-  experiencia: 'Experiência',
-  formacao: 'Formação',
-  competencias: 'Competências',
-  idiomas: 'Idiomas',
-  certificacoes: 'Certificações',
-  outros: 'Outros',
-};
-
-const PII_TITLE: Record<string, string> = {
+const PII_TITLE: Record<PiiKind, string> = {
   email: 'e-mail',
   telefone: 'telefone',
   cpf: 'CPF',
@@ -77,13 +66,16 @@ const PII_TITLE: Record<string, string> = {
   sexo: 'sexo',
 };
 
-const fmt = (ym: YearMonth) => `${String(ym.month).padStart(2, '0')}/${ym.year}`;
+const formatYearMonth = (ym: YearMonth) => `${String(ym.month).padStart(2, '0')}/${ym.year}`;
 
-const months = (n: number) => {
+const plural = (n: number, singular: string, plural: string) =>
+  `${n} ${n === 1 ? singular : plural}`;
+
+const formatDuration = (n: number) => {
   const years = Math.floor(n / 12);
   const rest = n % 12;
   return (
-    [years > 0 && `${years} ano${years > 1 ? 's' : ''}`, rest > 0 && `${rest} meses`]
+    [years > 0 && plural(years, 'ano', 'anos'), rest > 0 && plural(rest, 'mês', 'meses')]
       .filter(Boolean)
       .join(' e ') || 'menos de um mês'
   );
@@ -123,6 +115,18 @@ function contextBlock(context: CareerContext): string {
     );
   }
 
+  // O formulário do app cobre 5 das 6 prioridades da Fase 3. As duas que
+  // faltam continuam sendo pergunta — e a dos números é a que sustenta a
+  // regra de zero fabricação: sem número confirmado, o texto fica com
+  // [FALTA NÚMERO].
+  lines.push(
+    '',
+    '> **Ainda não perguntado.** O aplicativo não coletou os números reais dos',
+    '> 3 principais resultados nem as ambiguidades de histórico (cargo paralelo,',
+    '> lacuna, mudança de área). Pergunte os dois na Fase 3, e trate como número',
+    '> confirmado apenas o que vier da resposta.',
+  );
+
   return lines.join('\n');
 }
 
@@ -145,7 +149,7 @@ function documentBlock(sections: AssignedSection[]): string {
   }
 
   const blocks = SECTION_ORDER.filter((kind) => byKind.has(kind)).map((kind) =>
-    [`### ${SECTION_TITLE[kind]}`, '', byKind.get(kind)!.join('\n')].join('\n'),
+    [`### ${SECTION_LABEL[kind]}`, '', byKind.get(kind)!.join('\n')].join('\n'),
   );
 
   return [
@@ -179,7 +183,7 @@ function findingsBlock(input: DossierInput): string {
       `- **Períodos reconhecidos na experiência:** ${input.periods.length}`,
       ...input.periods.map(
         (p) =>
-          `  - ${fmt(p.start)} – ${p.end ? fmt(p.end) : 'atual'} (${months(durationMonths(p, now))})` +
+          `  - ${formatYearMonth(p.start)} – ${p.end ? formatYearMonth(p.end) : 'atual'} (${formatDuration(durationMonths(p, now))})` +
           (p.precision === 'year' ? ' — o documento só declarou o ano' : ''),
       ),
     );
@@ -190,7 +194,7 @@ function findingsBlock(input: DossierInput): string {
   lines.push(
     input.gaps.length > 0
       ? `- **Lacunas entre empregos:** ${input.gaps
-          .map((g) => `${fmt(g.from)} a ${fmt(g.to)} (${months(g.months)})`)
+          .map((g) => `${formatYearMonth(g.from)} a ${formatYearMonth(g.to)} (${formatDuration(g.months)})`)
           .join('; ')}`
       : '- **Lacunas entre empregos:** nenhuma acima de 4 meses',
   );
@@ -198,16 +202,16 @@ function findingsBlock(input: DossierInput): string {
   lines.push(
     input.shortTenures.length > 0
       ? `- **Permanências abaixo de 12 meses:** ${input.shortTenures
-          .map((p) => `${fmt(p.start)} – ${p.end ? fmt(p.end) : 'atual'}`)
+          .map((p) => `${formatYearMonth(p.start)} – ${p.end ? formatYearMonth(p.end) : 'atual'}`)
           .join('; ')}`
       : '- **Permanências abaixo de 12 meses:** nenhuma',
   );
 
-  const pii = Object.entries(summarizePii(input.pii));
+  const pii = Object.entries(summarizePii(input.pii)) as [PiiKind, number][];
   lines.push(
     pii.length > 0
       ? `- **Dados pessoais encontrados e removidos:** ${pii
-          .map(([kind, count]) => `${PII_TITLE[kind] ?? kind}${count > 1 ? ` (${count}×)` : ''}`)
+          .map(([kind, count]) => `${PII_TITLE[kind]}${count > 1 ? ` (${count}×)` : ''}`)
           .join(', ')}. Sinalize uma vez, na Fase 2, quais não deveriam estar num documento para o país-alvo — e siga sem mencioná-los de novo.`
       : '- **Dados pessoais encontrados:** nenhum',
   );
@@ -254,6 +258,17 @@ function jobsBlock(jobs: string[]): string {
     '## Vagas-alvo',
     '',
     'Texto colado pela pessoa, não link.',
+    // A Fase 3 do prompt pede de 2 a 5 vagas. Uma só dá vocabulário de uma
+    // empresa, não do mercado — e o modelo precisa saber disso antes de
+    // apresentar a tabela de palavras-chave como se fosse do setor.
+    ...(filled.length < 2
+      ? [
+          '',
+          '> **Só uma vaga.** O alinhamento de palavras-chave sai do vocabulário',
+          '> de um anúncio só. Trate como amostra de uma empresa, não do',
+          '> mercado, e diga isso ao apresentar a tabela.',
+        ]
+      : []),
     '',
     ...filled.map((job, i) => `### Vaga ${i + 1}\n\n${job}`),
   ].join('\n');
