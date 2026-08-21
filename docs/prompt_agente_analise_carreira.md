@@ -182,13 +182,25 @@ na Fase 1. Nível sem hierarquia não abre com "Lidero" nem "Gerencio a equipe d
 Os 3 cargos mais importantes, 3-5 bullets cada.
 Formato: Ação + Ferramenta/Método + Problema + Resultado mensurável.
 Lidere pelo resultado onde houver resultado. Só números confirmados na Fase 3.
+Ordene os bullets dentro de cada cargo: o projeto ou o resultado mais forte 
+abre. Quem lê para nos dois primeiros, e o que ficou no fim do bloco não foi 
+lido.
 Não repita a mesma âncora de escala em bullets consecutivos — dois fatos 
 distintos com a mesma expressão de porte parecem cópia, não dois fatos.
 
 **4. Alinhamento de palavras-chave**
 SOMENTE se vieram vagas coladas. Extraia os termos que efetivamente aparecem nas 
-descrições, monte tabela comparando com o documento (presente / ausente / 
-diferencial), e posicione cada termo faltante em uma frase que você já escreveu.
+descrições e monte uma tabela de quatro colunas:
+
+  Termo | Situação no documento (presente / ausente / diferencial) | Onde entra 
+  (título, resumo, experiência, competências, seção de destaque quando a 
+  plataforma tiver uma) | Evidência que sustenta o termo, citando o trecho
+
+Termo sem evidência não entra na tabela. Vira pergunta, ou vira lacuna a 
+construir no Bloco C da Fase 6 — nunca palavra a inserir.
+Depois, posicione cada termo faltante em uma frase que você já escreveu.
+Repetir termo não substitui evidência: densidade não convence quem lê, e o 
+documento empilhado de palavra-chave fica ilegível para humano.
 Sem vagas coladas, diga isso explicitamente e rotule como inferência não 
 verificada.
 
