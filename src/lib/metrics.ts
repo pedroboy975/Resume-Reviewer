@@ -13,6 +13,11 @@
  * pergunta.
  */
 
+import { parsePeriods } from './dates';
+
+/** A linha é um intervalo de datas, não texto de resultado. */
+const hasPeriod = (line: string) => parsePeriods(line).length > 0;
+
 export type MetricCategory = 'frequencia' | 'volume' | 'escala';
 
 export const METRIC_QUESTIONS: Record<MetricCategory, { label: string; question: string }> = {
@@ -52,10 +57,7 @@ const BULLET_MARK = /^[-•*▪–—]\s*/;
  * — cabeçalho do vínculo, não texto de resultado — e sai marcado como tal
  * pra não virar candidato a bullet sem número.
  */
-function paragraphs(
-  text: string,
-  hasPeriod: (line: string) => boolean,
-): { text: string; isHeader: boolean }[] {
+function paragraphs(text: string): { text: string; isHeader: boolean }[] {
   const out: { text: string; isHeader: boolean }[] = [];
   let buffer: string[] = [];
 
@@ -85,11 +87,8 @@ function paragraphs(
 }
 
 /** Bullets de experiência sem nenhum dígito, na ordem em que aparecem. */
-export function findMissingMetrics(
-  experienceText: string,
-  hasPeriod: (line: string) => boolean,
-): MissingMetricLine[] {
-  return paragraphs(experienceText, hasPeriod)
+export function findMissingMetrics(experienceText: string): MissingMetricLine[] {
+  return paragraphs(experienceText)
     .filter((p) => !p.isHeader && p.text.length >= MIN_LEN && !/\d/.test(p.text))
     .map((p) => ({ quote: p.text }));
 }

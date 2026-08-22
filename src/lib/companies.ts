@@ -21,8 +21,11 @@
  * acha, o período fica de fora. Nunca inventa um rótulo.
  */
 
-import { monthsBetween, type Period } from './dates';
+import { monthsBetween, parsePeriods, type Period } from './dates';
 import { detectHeading } from './sections';
+
+/** A linha é um intervalo de datas, não nome de cargo nem de empresa. */
+const hasPeriod = (line: string) => parsePeriods(line).length > 0;
 
 export type JobStint = {
   label: string;
@@ -64,7 +67,7 @@ function clean(candidate: string): string {
 
 const isBoilerplate = (s: string) => BOILERPLATE.has(stripAccents(s).toLowerCase());
 
-function isCandidate(line: string, hasPeriod: (s: string) => boolean): boolean {
+function isCandidate(line: string): boolean {
   const trimmed = clean(line);
   if (trimmed.length < MIN_LEN || trimmed.length > MAX_LEN) return false;
   if (hasPeriod(line)) return false;
@@ -82,17 +85,8 @@ function sameLineLabel(line: string, period: Period): string | null {
   return trimmed;
 }
 
-/**
- * Um rótulo por período, na ordem em que os períodos aparecem em `text`.
- *
- * `hasPeriod` reaproveita `parsePeriods` para não requalificar uma linha de
- * data como cargo/empresa — passar `(s) => parsePeriods(s).length > 0`.
- */
-export function extractCompanies(
-  text: string,
-  periods: Period[],
-  hasPeriod: (line: string) => boolean,
-): JobStint[] {
+/** Um rótulo por período, na ordem em que os períodos aparecem em `text`. */
+export function extractCompanies(text: string, periods: Period[]): JobStint[] {
   const lines = text.split('\n');
   const offsets = lineOffsets(text);
 
@@ -138,7 +132,7 @@ export function extractCompanies(
         i--;
         continue;
       }
-      if (!isCandidate(raw, hasPeriod)) break;
+      if (!isCandidate(raw)) break;
       above.unshift(clean(raw));
       i--;
     }
@@ -159,7 +153,7 @@ export function extractCompanies(
       // Nada acima nem na própria linha: currículo com data seguida do
       // cargo na linha de baixo, em vez de precedida por ele.
       const below = lines[lineIndex + 1];
-      parts = below !== undefined && isCandidate(below, hasPeriod) ? [clean(below)] : [];
+      parts = below !== undefined && isCandidate(below) ? [clean(below)] : [];
     }
 
     if (parts.length > 0) out.push({ label: parts.join(' — '), period });

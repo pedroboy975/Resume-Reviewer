@@ -8,8 +8,8 @@
  * nunca entra no dossiê. Só o tipo e a quantidade. Ver CLAUDE.md > PII.
  */
 
-import type { BuzzwordFinding } from './buzzwords';
-import { durationMonths, type Gap, type Period, type YearMonth } from './dates';
+import type { Analysis } from './analysis';
+import { durationMonths, type YearMonth } from './dates';
 import type { MissingMetricLine } from './metrics';
 import { checkField, countChars, LINKEDIN } from './limits';
 import { redact, summarizePii, type PiiFinding, type PiiKind } from './pii';
@@ -63,14 +63,14 @@ export const EMPTY_CONTEXT: CareerContext = {
   disclosure: '',
 };
 
+/**
+ * O que o dossiê precisa, separado por origem: `analysis` é o que se derivou
+ * do documento; o resto é o que a pessoa respondeu na interface.
+ */
 export type DossierInput = {
+  analysis: Analysis;
   context: CareerContext;
-  sections: AssignedSection[];
   pii: PiiFinding[];
-  periods: Period[];
-  gaps: Gap[];
-  shortTenures: Period[];
-  buzzwords: BuzzwordFinding[];
   /** Achado + resposta (vazia = ainda sem número) da Fase 3 assistida. */
   metrics: { finding: MissingMetricLine; answer: string }[];
   /** Texto colado das vagas-alvo. Link não serve: o modelo não abre. */
@@ -211,6 +211,7 @@ function documentBlock(sections: AssignedSection[]): string {
  */
 function findingsBlock(input: DossierInput): string {
   const now = input.now ?? new Date();
+  const { periods, gaps, shortTenures, buzzwords } = input.analysis;
   const lines = [
     '## Achados determinísticos',
     '',
@@ -219,10 +220,10 @@ function findingsBlock(input: DossierInput): string {
     '',
   ];
 
-  if (input.periods.length > 0) {
+  if (periods.length > 0) {
     lines.push(
-      `- **Períodos reconhecidos na experiência:** ${input.periods.length}`,
-      ...input.periods.map(
+      `- **Períodos reconhecidos na experiência:** ${periods.length}`,
+      ...periods.map(
         (p) =>
           `  - ${formatYearMonth(p.start)} – ${p.end ? formatYearMonth(p.end) : 'atual'} (${formatDuration(durationMonths(p, now))})` +
           (p.precision === 'year' ? ' — o documento só declarou o ano' : ''),
@@ -233,24 +234,24 @@ function findingsBlock(input: DossierInput): string {
   }
 
   lines.push(
-    input.gaps.length > 0
-      ? `- **Lacunas entre empregos:** ${input.gaps
+    gaps.length > 0
+      ? `- **Lacunas entre empregos:** ${gaps
           .map((g) => `${formatYearMonth(g.from)} a ${formatYearMonth(g.to)} (${formatDuration(g.months)})`)
           .join('; ')}`
       : '- **Lacunas entre empregos:** nenhuma acima de 4 meses',
   );
 
   lines.push(
-    input.shortTenures.length > 0
-      ? `- **Permanências abaixo de 12 meses:** ${input.shortTenures
+    shortTenures.length > 0
+      ? `- **Permanências abaixo de 12 meses:** ${shortTenures
           .map((p) => `${formatYearMonth(p.start)} – ${p.end ? formatYearMonth(p.end) : 'atual'}`)
           .join('; ')}`
       : '- **Permanências abaixo de 12 meses:** nenhuma',
   );
 
   lines.push(
-    input.buzzwords.length > 0
-      ? `- **Termos genéricos sem evidência por perto:** ${input.buzzwords
+    buzzwords.length > 0
+      ? `- **Termos genéricos sem evidência por perto:** ${buzzwords
           .map((b) => `"${b.quote}"`)
           .join(', ')}. Não reescreva por conta própria — aponte o trecho e peça reescrita no` +
         ' formato Ação + Método + Problema + Resultado, só com número que a pessoa confirmar.'
@@ -290,7 +291,7 @@ function findingsBlock(input: DossierInput): string {
   // contra os 2600 do campo "Sobre" seria entregar como calculado uma
   // restrição que não existe naquele documento.
   const resumo = hasLinkedIn(input.context.artifact)
-    ? input.sections
+    ? input.analysis.sections
         .filter((s) => s.kind === 'resumo')
         .map(bodyOf)
         .join('\n')
@@ -303,7 +304,7 @@ function findingsBlock(input: DossierInput): string {
     );
   }
 
-  const headline = input.sections
+  const headline = input.analysis.sections
     .filter((s) => hasLinkedIn(input.context.artifact) && s.kind === 'header')
     .flatMap((s) => bodyOf(s).split('\n').slice(1))
     .map((l) => l.trim())
@@ -360,7 +361,7 @@ export function buildDossier(input: DossierInput): string {
     '',
     contextBlock(input.context),
     '',
-    documentBlock(input.sections),
+    documentBlock(input.analysis.sections),
     '',
     findingsBlock(input),
     '',

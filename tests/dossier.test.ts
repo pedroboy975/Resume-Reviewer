@@ -1,20 +1,16 @@
 import { describe, it, expect } from 'vitest';
+import { analyze } from '@/lib/analysis';
 import { buildDossier, EMPTY_CONTEXT, type DossierInput } from '@/lib/dossier';
 import { CAREER_PROMPT } from '@/lib/prompt';
-import { findGaps, parsePeriods, shortTenures } from '@/lib/dates';
 import { findPii } from '@/lib/pii';
-import { assignLines, experienceText, groupAssignedLines } from '@/lib/sections';
+import { assignLines } from '@/lib/sections';
 
 const NOW = new Date('2026-08-21');
 
 const input = (over: Partial<DossierInput> = {}): DossierInput => ({
+  analysis: analyze('', [], { now: NOW }),
   context: EMPTY_CONTEXT,
-  sections: [],
   pii: [],
-  periods: [],
-  gaps: [],
-  shortTenures: [],
-  buzzwords: [],
   metrics: [],
   jobs: [],
   now: NOW,
@@ -23,15 +19,9 @@ const input = (over: Partial<DossierInput> = {}): DossierInput => ({
 
 /** Um caso completo, montado pelo mesmo caminho que a UI usa. */
 function fromText(text: string, over: Partial<DossierInput> = {}) {
-  const lines = text.split('\n');
-  const sections = groupAssignedLines(lines, assignLines(text));
-  const periods = parsePeriods(experienceText(sections));
   return input({
-    sections,
+    analysis: analyze(text, assignLines(text), { now: NOW }),
     pii: findPii(text),
-    periods,
-    gaps: findGaps(periods, { now: NOW }),
-    shortTenures: shortTenures(periods, { now: NOW }),
     ...over,
   });
 }
