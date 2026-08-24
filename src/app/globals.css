@@ -59,7 +59,10 @@ body {
   z-index: -1;
   background:
     linear-gradient(color-mix(in srgb, var(--color-bg) 72%, transparent), color-mix(in srgb, var(--color-bg) 72%, transparent)),
-    url('/bg-network.png') center top / cover no-repeat;
+    /* O `basePath` do next.config.ts não reescreve url() dentro de CSS —
+       daí o caminho completo. Vale em dev e em produção, porque o dev
+       server também serve sob o basePath. */
+    url('/Resume-Reviewer/bg-network.png') center top / cover no-repeat;
 }
 
 ::selection {
