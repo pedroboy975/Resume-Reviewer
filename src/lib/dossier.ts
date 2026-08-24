@@ -125,6 +125,13 @@ const bodyOf = (section: AssignedSection): string =>
  */
 const quote = (s: string) => redact(s).text;
 
+/**
+ * Prefixo de vínculo numa citação de métrica. Sem ele, duas atividades
+ * idênticas em empresas diferentes chegam ao modelo como linhas repetidas —
+ * e ele não tem como pedir o número certo para cada uma.
+ */
+const where = (m: MissingMetricLine) => (m.label ? `**${quote(m.label)}** — ` : '');
+
 const field = (label: string, value: string) =>
   `- **${label}:** ${value.trim() || '(não informado)'}`;
 
@@ -275,14 +282,14 @@ function findingsBlock(input: DossierInput): string {
     lines.push('- **Resultados sem número, com resposta confirmada pela pessoa (Fase 3 assistida):**');
     lines.push(
       ...(answered.length > 0
-        ? answered.map((m) => `  - "${quote(m.finding.quote)}" → ${m.answer.trim()}`)
+        ? answered.map((m) => `  - ${where(m.finding)}"${quote(m.finding.quote)}" → ${m.answer.trim()}`)
         : ['  - nenhuma resposta ainda']),
     );
 
     if (unanswered.length > 0) {
       lines.push(
         `- **Ainda sem número (${unanswered.length}):** ${unanswered
-          .map((m) => `"${quote(m.finding.quote)}"`)
+          .map((m) => `${where(m.finding)}"${quote(m.finding.quote)}"`)
           .join('; ')}. Mantenha [FALTA NÚMERO] nesses trechos — não estime.`,
       );
     }

@@ -53,3 +53,26 @@ describe('extractCompanies', () => {
     expect(stints.map((s) => s.label)).toEqual(['Empresa Antiga', 'Empresa Recente']);
   });
 });
+
+describe('bullet do vínculo anterior não vira rótulo', () => {
+  // Sem linha em branco entre um vínculo e o próximo, o último bullet do
+  // anterior encosta na data do seguinte.
+  const text = [
+    'Trading Ltda. — Assistente',
+    'jan/2015 - dez/2016',
+    'Pagamento de taxas referentes a liberação da carga;',
+    'Geoline Engenharia — Assistente de Projetos',
+    'jan/2017 - dez/2018',
+  ].join('\n');
+
+  it('usa o cargo/empresa real, não a frase de resultado', () => {
+    const [, segundo] = extractCompanies(text, parsePeriods(text));
+    expect(segundo.label).toContain('Geoline');
+    expect(segundo.label).not.toContain('Pagamento de taxas');
+  });
+
+  it('não descarta nome de empresa com abreviação no fim', () => {
+    const [primeiro] = extractCompanies(text, parsePeriods(text));
+    expect(primeiro.label).toContain('Trading Ltda.');
+  });
+});

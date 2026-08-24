@@ -5,6 +5,7 @@ import { readPdfText } from '@/lib/pdf-client';
 import { redact, type PiiFinding } from '@/lib/pii';
 import { assignLines, type SectionKind } from '@/lib/sections';
 import { analyze } from '@/lib/analysis';
+import { metricKey } from '@/lib/metrics';
 import { durationMonths } from '@/lib/dates';
 import { buildTimeline } from '@/lib/timeline';
 import { buildDossier, EMPTY_CONTEXT, type CareerContext } from '@/lib/dossier';
@@ -120,13 +121,13 @@ export default function Home() {
     () =>
       analysis.missingMetrics.map((finding) => ({
         finding,
-        answer: metricAnswers[finding.quote] ?? '',
+        answer: metricAnswers[metricKey(finding)] ?? '',
       })),
     [analysis, metricAnswers],
   );
 
-  function onMetricAnswer(quote: string, value: string) {
-    setMetricAnswers((current) => ({ ...current, [quote]: value }));
+  function onMetricAnswer(key: string, value: string) {
+    setMetricAnswers((current) => ({ ...current, [key]: value }));
   }
 
   const dossier = useMemo(

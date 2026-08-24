@@ -55,6 +55,8 @@ export function analyze(
   // existe: só o que a pessoa atribuiu a Experiência entra na aritmética.
   const experiencia = experienceText(sections);
   const periods = parsePeriods(experiencia);
+  // Ordem do documento: é ela que diz qual vínculo cobre cada trecho abaixo.
+  const stints = extractCompanies(experiencia, periods);
 
   return {
     lines,
@@ -63,8 +65,8 @@ export function analyze(
     gaps: findGaps(periods, { now }),
     shortTenures: shortTenures(periods, { now }),
     buzzwords: findBuzzwords(text),
-    missingMetrics: findMissingMetrics(experiencia),
-    stints: chronological(extractCompanies(experiencia, periods)),
+    missingMetrics: findMissingMetrics(experiencia, stints),
+    stints: chronological(stints),
     scope: findScopeEvidence(sections),
   };
 }

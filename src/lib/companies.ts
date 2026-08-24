@@ -67,10 +67,25 @@ function clean(candidate: string): string {
 
 const isBoilerplate = (s: string) => BOILERPLATE.has(stripAccents(s).toLowerCase());
 
+/**
+ * A linha acima da data nem sempre é cargo/empresa: quando o vínculo anterior
+ * termina em bullet e não há linha em branco entre os dois, o último bullet
+ * dele encosta na data do próximo e vira "empresa".
+ *
+ * Pontuação de fim de frase separa os dois. Nome de empresa e título de cargo
+ * não terminam em ";", e quando terminam em "." é abreviação curta ("Ltda.",
+ * "S.A.") — não uma frase inteira.
+ */
+function isProse(s: string): boolean {
+  if (s.endsWith(';')) return true;
+  return s.endsWith('.') && s.split(/\s+/).length > 6;
+}
+
 function isCandidate(line: string): boolean {
   const trimmed = clean(line);
   if (trimmed.length < MIN_LEN || trimmed.length > MAX_LEN) return false;
   if (hasPeriod(line)) return false;
+  if (isProse(trimmed)) return false;
   if (detectHeading(trimmed)) return false;
   if (isBoilerplate(trimmed)) return false;
   return true;

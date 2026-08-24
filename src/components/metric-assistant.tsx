@@ -1,11 +1,11 @@
 'use client';
 
-import { METRIC_QUESTIONS, type MissingMetricLine } from '@/lib/metrics';
+import { METRIC_QUESTIONS, metricKey, type MissingMetricLine } from '@/lib/metrics';
 
 type Props = {
   missing: MissingMetricLine[];
   answers: Record<string, string>;
-  onAnswer: (quote: string, value: string) => void;
+  onAnswer: (key: string, value: string) => void;
 };
 
 /**
@@ -31,7 +31,20 @@ export function MetricAssistant({ missing, answers, onAnswer }: Props) {
       </p>
 
       {missing.map((m) => (
-        <div key={m.quote} className="flex flex-col gap-2 rounded border border-border bg-surface p-3">
+        <div
+          key={metricKey(m)}
+          className="flex flex-col gap-2 rounded border border-border bg-surface p-3"
+        >
+          {/* O vínculo primeiro: é o que diz de qual emprego é este trecho
+              quando a mesma atividade se repete em empresas diferentes. */}
+          {m.label && (
+            <p
+              title={m.label}
+              className="truncate text-right font-mono text-[11px] uppercase tracking-wide text-amber"
+            >
+              {m.label}
+            </p>
+          )}
           <p className="text-xs text-ink-dim italic">&ldquo;{m.quote}&rdquo;</p>
 
           <ul className="flex flex-col gap-1 text-xs text-ink-dim">
@@ -43,8 +56,8 @@ export function MetricAssistant({ missing, answers, onAnswer }: Props) {
           </ul>
 
           <textarea
-            value={answers[m.quote] ?? ''}
-            onChange={(e) => onAnswer(m.quote, e.target.value)}
+            value={answers[metricKey(m)] ?? ''}
+            onChange={(e) => onAnswer(metricKey(m), e.target.value)}
             placeholder="Responda uma ou mais perguntas acima, com o número real."
             className="min-h-16 rounded border border-border bg-bg p-2 font-mono text-xs text-ink placeholder:text-ink-dim focus:border-amber focus:outline-none"
           />
