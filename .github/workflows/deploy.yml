@@ -28,10 +28,12 @@ jobs:
 
       - run: npm ci
 
-      # Os testes rodam contra PDFs reais que não são versionados; no CI a
-      # pasta vem vazia e a suíte inteira falharia. Ver tests/fixtures/README.md.
-      - run: npx tsc --noEmit
-
+      # `next build` já roda o TypeScript. Um `tsc --noEmit` separado antes
+      # dele falha em checkout limpo: `LayoutProps` é gerado pelo próprio
+      # build em `.next/types/`, e ainda não existe.
+      #
+      # Os testes não rodam aqui: dependem de PDFs reais que não são
+      # versionados. Ver tests/fixtures/README.md.
       - run: npm run build
 
       # Sem isto o Jekyll do Pages ignora a pasta `_next` — nome começando
