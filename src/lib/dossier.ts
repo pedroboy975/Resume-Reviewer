@@ -14,6 +14,7 @@ import type { MissingMetricLine } from './metrics';
 import { checkField, countChars, LINKEDIN } from './limits';
 import { redact, summarizePii, type PiiFinding, type PiiKind } from './pii';
 import { CAREER_PROMPT } from './prompt';
+import { AXES, AXIS_EMPTY, AXIS_LABEL, type ScopePanel } from './scope';
 import {
   detectHeading,
   SECTION_LABEL,
@@ -114,6 +115,15 @@ const bodyOf = (section: AssignedSection): string =>
       .filter((line) => detectHeading(line) === null)
       .join('\n'),
   ).text.trim();
+
+/**
+ * Toda citação que sai do app passa por aqui.
+ *
+ * O texto já chega redigido da UI, e `redact` é idempotente — isto é a mesma
+ * última linha de defesa que `bodyOf` aplica ao documento, pelo mesmo motivo:
+ * a regra de PII é invariante de código, não confiança em quem chamou.
+ */
+const quote = (s: string) => redact(s).text;
 
 const field = (label: string, value: string) =>
   `- **${label}:** ${value.trim() || '(não informado)'}`;
@@ -265,14 +275,14 @@ function findingsBlock(input: DossierInput): string {
     lines.push('- **Resultados sem número, com resposta confirmada pela pessoa (Fase 3 assistida):**');
     lines.push(
       ...(answered.length > 0
-        ? answered.map((m) => `  - "${m.finding.quote}" → ${m.answer.trim()}`)
+        ? answered.map((m) => `  - "${quote(m.finding.quote)}" → ${m.answer.trim()}`)
         : ['  - nenhuma resposta ainda']),
     );
 
     if (unanswered.length > 0) {
       lines.push(
         `- **Ainda sem número (${unanswered.length}):** ${unanswered
-          .map((m) => `"${m.finding.quote}"`)
+          .map((m) => `"${quote(m.finding.quote)}"`)
           .join('; ')}. Mantenha [FALTA NÚMERO] nesses trechos — não estime.`,
       );
     }
@@ -314,6 +324,51 @@ function findingsBlock(input: DossierInput): string {
       `- **Segunda linha do cabeçalho:** ${countChars(headline)} caracteres; o headline do LinkedIn aceita ${LINKEDIN.headline}.`,
     );
   }
+
+  return lines.join('\n');
+}
+
+/**
+ * Evidência de escopo — bloco separado dos achados determinísticos de
+ * propósito. Achado é conta fechada; isto é matéria-prima citada, e misturar
+ * os dois faria o modelo ler a tabela como conclusão. O aviso no topo existe
+ * pelo mesmo motivo: tabela colada em chat é lida como veredito.
+ */
+function scopeBlock(scope: ScopePanel): string {
+  const lines = [
+    '## Evidência de escopo',
+    '',
+    'Trechos agrupados por match literal de termos, não por análise.',
+    '**Não são uma classificação de nível.** Ausência num eixo indica que o',
+    'aplicativo não reconheceu o termo, não que a evidência não exista — a',
+    'redação em voz passiva escapa da lista. O enquadramento em',
+    'Júnior/Pleno/Sênior/Especialista/Gestor/Diretor é seu, pela Fase 1, e os',
+    'três campos (nível comprovado, nível prometido, distância) continuam',
+    'sendo seu trabalho.',
+    '',
+    '### Comprovado — sinal dentro de Experiência, preso a um vínculo',
+  ];
+
+  for (const axis of AXES) {
+    const found = scope.proven.filter((e) => e.axis === axis);
+    lines.push(
+      '',
+      `**${AXIS_LABEL[axis]}**`,
+      ...(found.length > 0
+        ? found.map((e) => `- "${quote(e.quote)}"`)
+        : [`- ${AXIS_EMPTY[axis]}`]),
+    );
+  }
+
+  // A auto-declaração é a coluna "prometido" da regra 5 do CLAUDE.md. Sai
+  // separada justamente para não ser somada à evidência comprovada.
+  lines.push('', '### Declarado — o mesmo sinal fora de Experiência, sem vínculo que sustente');
+  lines.push(
+    '',
+    ...(scope.claimed.length > 0
+      ? scope.claimed.map((e) => `- ${AXIS_LABEL[e.axis]}: "${quote(e.quote)}"`)
+      : ['- Nenhum termo de escopo no Cabeçalho, no Resumo ou em Competências.']),
+  );
 
   return lines.join('\n');
 }
@@ -364,6 +419,8 @@ export function buildDossier(input: DossierInput): string {
     documentBlock(input.analysis.sections),
     '',
     findingsBlock(input),
+    '',
+    scopeBlock(input.analysis.scope),
     '',
     jobsBlock(input.jobs),
     '',

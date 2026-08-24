@@ -20,6 +20,7 @@ import { findBuzzwords, type BuzzwordFinding } from './buzzwords';
 import { chronological, extractCompanies, type JobStint } from './companies';
 import { findGaps, parsePeriods, shortTenures, type Gap, type Period } from './dates';
 import { findMissingMetrics, type MissingMetricLine } from './metrics';
+import { findScopeEvidence, type ScopePanel } from './scope';
 import { experienceText, groupAssignedLines, type AssignedSection, type SectionKind } from './sections';
 
 export type Analysis = {
@@ -32,6 +33,8 @@ export type Analysis = {
   missingMetrics: MissingMetricLine[];
   /** Vínculos com rótulo reconhecido, do mais antigo para o mais recente. */
   stints: JobStint[];
+  /** Trechos que sustentam cada eixo de escopo. Não é veredito de nível. */
+  scope: ScopePanel;
 };
 
 /**
@@ -62,5 +65,6 @@ export function analyze(
     buzzwords: findBuzzwords(text),
     missingMetrics: findMissingMetrics(experiencia),
     stints: chronological(extractCompanies(experiencia, periods)),
+    scope: findScopeEvidence(sections),
   };
 }

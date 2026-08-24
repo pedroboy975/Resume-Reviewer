@@ -11,6 +11,7 @@ import { buildDossier, EMPTY_CONTEXT, type CareerContext } from '@/lib/dossier';
 import { ContextForm } from '@/components/context-form';
 import { MetricAssistant } from '@/components/metric-assistant';
 import { PiiPanel } from '@/components/pii-panel';
+import { ScopePanel } from '@/components/scope-panel';
 import { SectionEditor } from '@/components/section-editor';
 import { SourcePicker } from '@/components/source-picker';
 import { Timeline } from '@/components/timeline';
@@ -292,7 +293,12 @@ export default function Home() {
           </section>
 
           <section className="mt-10 flex flex-col gap-3 border-t border-border pt-8">
-            <Stage n={7} label="Dossiê" />
+            <Stage n={7} label="Escopo" />
+            <ScopePanel panel={analysis.scope} />
+          </section>
+
+          <section className="mt-10 flex flex-col gap-3 border-t border-border pt-8">
+            <Stage n={8} label="Dossiê" />
             <p className="text-sm text-ink-dim">
               Prompt de análise + seu documento + os achados calculados aqui.
               Cole em qualquer chat de IA.

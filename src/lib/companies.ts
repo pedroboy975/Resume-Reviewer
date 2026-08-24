@@ -43,7 +43,7 @@ const DURATION_ONLY = /^\d+\s*anos?(?:\s*(?:e\s*)?\d+\s*mes(?:es)?)?$|^\d+\s*mes
 // e não significam nada sozinhas.
 const BOILERPLATE = new Set(['periodo', 'duracao', 'data', 'de', 'ate', 'desde', 'presente']);
 
-const stripAccents = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '');
+export const stripAccents = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '');
 
 /** Início (offset) de cada linha em `text`. */
 function lineOffsets(text: string): number[] {

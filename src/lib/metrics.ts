@@ -14,6 +14,7 @@
  */
 
 import { parsePeriods } from './dates';
+import { detectHeading } from './sections';
 
 /** A linha é um intervalo de datas, não texto de resultado. */
 const hasPeriod = (line: string) => parsePeriods(line).length > 0;
@@ -43,7 +44,7 @@ export type MissingMetricLine = {
 // Abaixo disso é cargo, empresa, cidade ou rótulo — não um bullet de
 // resultado. O que sobra depois de juntar as linhas quebradas pelo pdfjs
 // costuma passar de 40 caracteres com folga; título de cargo raramente passa.
-const MIN_LEN = 40;
+export const MIN_LEN = 40;
 
 const BULLET_MARK = /^[-•*▪–—]\s*/;
 
@@ -57,7 +58,7 @@ const BULLET_MARK = /^[-•*▪–—]\s*/;
  * — cabeçalho do vínculo, não texto de resultado — e sai marcado como tal
  * pra não virar candidato a bullet sem número.
  */
-function paragraphs(text: string): { text: string; isHeader: boolean }[] {
+export function paragraphs(text: string): { text: string; isHeader: boolean }[] {
   const out: { text: string; isHeader: boolean }[] = [];
   let buffer: string[] = [];
 
@@ -76,6 +77,12 @@ function paragraphs(text: string): { text: string; isHeader: boolean }[] {
     }
     if (hasPeriod(line)) {
       flush(true);
+      continue;
+    }
+    // Título de seção vem junto no texto da seção — `experienceText` não o
+    // separa — e ficava colado no primeiro parágrafo, corrompendo a citação.
+    if (detectHeading(line)) {
+      flush(false);
       continue;
     }
     if (BULLET_MARK.test(line)) flush(false);
