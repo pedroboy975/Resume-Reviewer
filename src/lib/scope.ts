@@ -60,7 +60,7 @@ export type ScopeEvidence = {
 export type ScopePanel = {
   /** Sinal dentro de Experiência: preso a um vínculo com data e empresa. */
   proven: ScopeEvidence[];
-  /** O mesmo sinal em Resumo, Cabeçalho ou Competências: auto-declaração. */
+  /** O mesmo sinal no Resumo ou em Competências: auto-declaração. */
   claimed: ScopeEvidence[];
   /**
    * Linhas de Experiência que o detector não reconheceu. Vão para a tela,
@@ -95,6 +95,7 @@ const TERMS: { axis: ScopeAxis; pattern: string; needsNumber?: boolean }[] = [
   { axis: 'decisao', pattern: 'estabelec' },
   { axis: 'decisao', pattern: 'prioriz' },
   { axis: 'decisao', pattern: 'criei' },
+  { axis: 'decisao', pattern: 'criacao d' },
   { axis: 'decisao', pattern: 'propus' },
   // Escopo de decisão — en
   { axis: 'decisao', pattern: 'establish' },
@@ -158,8 +159,27 @@ const MATCHERS = TERMS.map((t) => ({ ...t, re: new RegExp(`\\b${t.pattern}`) }))
 
 export const AXES: ScopeAxis[] = ['decisao', 'responsabilidade', 'lideranca'];
 
-/** Seções onde um sinal de escopo é auto-declaração, não vínculo comprovado. */
-const CLAIM_SECTIONS: SectionKind[] = ['header', 'resumo', 'competencias'];
+/**
+ * Seções onde um sinal de escopo é auto-declaração, não vínculo comprovado.
+ *
+ * `header` ficou de fora depois de rodar contra os currículos reais: ali mora
+ * nome, contato e URL de perfil, e a lista de "Top Skills" do LinkedIn vem
+ * colada no mesmo bloco. O que casava era quase sempre isso, e a citação saía
+ * carregando a linha de identificação junto. O headline, que é o sinal que
+ * valeria a pena, o dossiê já reporta em separado.
+ */
+const CLAIM_SECTIONS: SectionKind[] = ['resumo', 'competencias'];
+
+/**
+ * Cada frase é uma citação; o parágrafo não.
+ *
+ * Currículo sem marcador de lista e sem linha em branco — que é a maioria —
+ * faz `paragraphs` devolver o bloco inteiro do vínculo, do cargo até o último
+ * resultado. Citar isso como evidência de um eixo é citar o emprego todo, e a
+ * regra 3 do CLAUDE.md pede trecho, não parágrafo. Continua verbatim: o corte
+ * é em fim de frase, sem reescrever nada.
+ */
+const SENTENCE_SPLIT = /(?<=[.;])\s+/;
 
 const HAS_NUMBER = /\d/;
 
@@ -183,6 +203,22 @@ const textOf = (sections: AssignedSection[], kinds: SectionKind[]) =>
     .map((s) => s.text)
     .join('\n');
 
+/**
+ * Uma evidência por eixo e por frase. Se nenhuma frase isolada casar — o
+ * termo ficou espalhado no corte —, o parágrafo inteiro serve de citação.
+ */
+function evidenceIn(paragraph: string): ScopeEvidence[] {
+  const found: ScopeEvidence[] = [];
+
+  for (const raw of paragraph.split(SENTENCE_SPLIT)) {
+    const quote = raw.trim();
+    if (quote === '') continue;
+    for (const axis of axesOf(quote)) found.push({ axis, quote });
+  }
+
+  return found.length > 0 ? found : axesOf(paragraph).map((axis) => ({ axis, quote: paragraph }));
+}
+
 export function findScopeEvidence(sections: AssignedSection[]): ScopePanel {
   const proven: ScopeEvidence[] = [];
   const claimed: ScopeEvidence[] = [];
@@ -192,9 +228,9 @@ export function findScopeEvidence(sections: AssignedSection[]): ScopePanel {
     // Cargo/empresa não é texto de resultado — `paragraphs` já marca.
     if (p.isHeader) continue;
 
-    const axes = axesOf(p.text);
-    if (axes.length > 0) {
-      for (const axis of axes) proven.push({ axis, quote: p.text });
+    const found = evidenceIn(p.text);
+    if (found.length > 0) {
+      proven.push(...found);
     } else if (p.text.length >= MIN_LEN) {
       unclassified.push(p.text);
     }
@@ -202,7 +238,7 @@ export function findScopeEvidence(sections: AssignedSection[]): ScopePanel {
 
   for (const p of paragraphs(textOf(sections, CLAIM_SECTIONS))) {
     // Sem piso de tamanho: em Competências a evidência é uma palavra solta.
-    for (const axis of axesOf(p.text)) claimed.push({ axis, quote: p.text });
+    claimed.push(...evidenceIn(p.text));
   }
 
   return {
