@@ -37,6 +37,9 @@ import {
 export const LEVELS = ['Júnior', 'Pleno', 'Sênior', 'Especialista', 'Gestor', 'Diretor'] as const;
 export type Level = (typeof LEVELS)[number];
 
+/** Valores aceitos em `Distância entre os dois`, pela Fase 1 do prompt. */
+export const DISTANCES = ['nenhuma', 'meio degrau', 'um degrau', 'dois ou mais'] as const;
+
 /**
  * Tipo de artefato, que a Fase 1 do prompt classifica primeiro.
  *
@@ -510,10 +513,24 @@ function scopeBlock(scope: ScopePanel): string {
     'Trechos agrupados por match literal de termos, não por análise.',
     '**Não são uma classificação de nível.** Ausência num eixo indica que o',
     'aplicativo não reconheceu o termo, não que a evidência não exista — a',
-    'redação em voz passiva escapa da lista. O enquadramento em',
-    'Júnior/Pleno/Sênior/Especialista/Gestor/Diretor é seu, pela Fase 1, e os',
-    'três campos (nível comprovado, nível prometido, distância) continuam',
-    'sendo seu trabalho.',
+    'redação em voz passiva escapa da lista. O enquadramento é seu, pela',
+    'Fase 1.',
+    '',
+    // O formato canônico existe para o validador poder rodar: sem uma linha
+    // com valor único, "Especialista / Coordenador Técnico (Pleno a Sênior)"
+    // é indistinguível de uma classificação legítima. A justificativa em
+    // prosa continua sendo bem-vinda — abaixo das três linhas, não dentro
+    // delas. Ver src/lib/validate.ts > checkLevelFields.
+    'Os três campos da Fase 1 saem em três linhas próprias, cada uma com **um**',
+    'valor, sem barra e sem parênteses:',
+    '',
+    '```',
+    `NIVEL_COMPROVADO: <${LEVELS.join(' | ')}>`,
+    `NIVEL_PROMETIDO: <${LEVELS.join(' | ')}>`,
+    `DISTANCIA: <${DISTANCES.join(' | ')}>`,
+    '```',
+    '',
+    'A justificativa de cada um vem em prosa depois do bloco.',
     '',
     '### Comprovado — sinal dentro de Experiência, preso a um vínculo',
   ];

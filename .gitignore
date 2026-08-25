@@ -43,3 +43,5 @@ next-env.d.ts
 # fixtures: currículos reais, não anonimizados.
 # Ficam só na máquina local. Ver tests/fixtures/README.md
 /tests/fixtures/*.pdf
+# pares dossie/resposta das rodadas reais: mesma PII dos PDFs.
+/tests/fixtures/outputs/
