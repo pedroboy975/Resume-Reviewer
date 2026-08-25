@@ -253,3 +253,33 @@ export function shortTenures(
 ): Period[] {
   return periods.filter((p) => p.end !== null && durationMonths(p, now) < maxMonths);
 }
+
+/**
+ * Meses de experiência somados, sem contar duas vezes o que se sobrepõe.
+ *
+ * Existe porque vaga costuma exigir "mínimo de N anos", e somar a duração de
+ * cada vínculo daria a resposta errada para quem teve cargo paralelo: dois
+ * empregos no mesmo semestre não são doze meses de experiência, são seis.
+ * Aqui os períodos são unidos antes de somar.
+ *
+ * O que se conta é o tempo coberto por algum vínculo, não a carreira: lacuna
+ * entre um emprego e o outro não entra. Quem quiser a diferença entre as duas
+ * coisas tem `findGaps` ao lado.
+ */
+export function totalMonths(periods: Period[], { now = new Date() }: { now?: Date } = {}): number {
+  const ranges = periods
+    .map((p) => ({ start: p.start, end: p.end ?? toYearMonth(now) }))
+    .sort((a, b) => monthsBetween(b.start, a.start));
+
+  let total = 0;
+  let covered: YearMonth | null = null;
+  for (const range of ranges) {
+    // O começo efetivo é o mais tarde entre o início e o fim do que já foi
+    // contado: o mês em que o vínculo anterior terminou já está na soma.
+    const from = covered && monthsBetween(covered, range.start) <= 0 ? covered : range.start;
+    const months = monthsBetween(from, range.end) + (covered && from === covered ? 0 : 1);
+    if (months > 0) total += months;
+    if (!covered || monthsBetween(covered, range.end) > 0) covered = range.end;
+  }
+  return total;
+}

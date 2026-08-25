@@ -454,3 +454,35 @@ describe('tabela de vocabulário', () => {
     expect(buildDossier(input())).not.toContain('Vocabulário das vagas');
   });
 });
+
+describe('requisitos duros da vaga', () => {
+  const CV = [
+    'EXPERIÊNCIA',
+    'Banco Alfa',
+    'Analista de Tesouraria',
+    'jan/2016 - atual',
+    'Conduzi a rotina de caixa e o relacionamento bancário da operação inteira.',
+  ].join('\n');
+
+  it('faz a conta de anos em vez de deixar o modelo declarar que atende', () => {
+    const d = buildDossier(
+      fromText(CV, { jobs: ['Mínimo de 12 anos de experiência em posição similar.'] }),
+    );
+    expect(d).toContain('exige 12 anos');
+    expect(d).toContain('somado no documento: 10 anos e 8 meses');
+    expect(d).toContain('diferença: -1 ano e 4 meses');
+    expect(d).toContain('modalidade declarada: obrigatório');
+  });
+
+  it('leva a modalidade que a vaga escreveu, e a sigla conferida no documento', () => {
+    const d = buildDossier(fromText(CV, { jobs: ['Certificação CFP, CEA ou CGA (diferencial).'] }));
+    expect(d).toContain('modalidade declarada: diferencial');
+    expect(d).toContain('CFP: não aparece no documento');
+    expect(d).toContain('Não promova "diferencial" a obrigatório');
+  });
+
+  it('vaga sem requisito duro não abre o bloco', () => {
+    const d = buildDossier(fromText(CV, { jobs: ['Venha fazer parte de um time apaixonado.'] }));
+    expect(d).not.toContain('Requisitos que a Vaga');
+  });
+});

@@ -7,6 +7,7 @@ import {
   monthsBetween,
   parsePeriods,
   shortTenures,
+  totalMonths,
 } from '@/lib/dates';
 import { sectionText, splitSections } from '@/lib/sections';
 import { fixtureNames, fixtureText } from './helpers/fixtures';
@@ -199,5 +200,34 @@ describe('chronological', () => {
     // Export do LinkedIn: emprego atual no topo, estágio paralelo no fim.
     const periods = parsePeriods('Atual: 03/2021 - atual\nAntes: 01/2018 - 01/2019');
     expect(chronological(periods).map((p) => p.start.year)).toEqual([2018, 2021]);
+  });
+});
+
+describe('totalMonths', () => {
+  const p = (text: string) => parsePeriods(text);
+
+  it('conta o primeiro e o último mês, como durationMonths', () => {
+    expect(totalMonths(p('02/2020 - 05/2020'))).toBe(4);
+  });
+
+  it('não conta duas vezes o que se sobrepõe', () => {
+    // Dois empregos no mesmo semestre não são doze meses de experiência.
+    expect(totalMonths(p('01/2020 - 06/2020\n03/2020 - 06/2020'))).toBe(6);
+  });
+
+  it('soma vínculos separados', () => {
+    expect(totalMonths(p('01/2018 - 12/2018\n01/2020 - 12/2020'))).toBe(24);
+  });
+
+  it('lacuna entre um emprego e o outro não entra', () => {
+    expect(totalMonths(p('01/2018 - 12/2018\n01/2022 - 12/2022'))).toBe(24);
+  });
+
+  it('período em andamento conta até hoje', () => {
+    expect(totalMonths(p('01/2026 - atual'), { now: NOW })).toBe(8);
+  });
+
+  it('sem período nenhum, zero', () => {
+    expect(totalMonths([])).toBe(0);
   });
 });

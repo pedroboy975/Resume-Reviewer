@@ -9,13 +9,20 @@
  */
 
 import type { Analysis } from './analysis';
-import { durationMonths, monthsBetween, type YearMonth } from './dates';
+import { durationMonths, monthsBetween, totalMonths, type YearMonth } from './dates';
 import type { MissingMetricLine } from './metrics';
 import { checkField, countChars, LINKEDIN } from './limits';
 import { stripAccents } from './companies';
 import { redact, summarizePii, type PiiFinding, type PiiKind } from './pii';
 import { CAREER_PROMPT } from './prompt';
 import { sectionNames } from './repetition';
+import {
+  acronymsIn,
+  findRequirements,
+  inDocument,
+  KIND_LABEL,
+  type Requirement,
+} from './requirements';
 import { jobVocabulary } from './vocabulary';
 import { AXES, AXIS_EMPTY, AXIS_LABEL, type ScopePanel } from './scope';
 import {
@@ -616,6 +623,54 @@ function oddJobs(filled: string[], target: string): number[] {
 }
 
 /**
+ * Requisito duro da vaga, com a modalidade que o texto declarou e a conta do
+ * lado — nunca o veredito.
+ *
+ * A comparação de anos é subtração e sai daqui. Decidir se catorze meses a
+ * menos eliminam a candidatura é julgamento de mercado, e continua sendo do
+ * modelo. O que o app garante é que ele não vai afirmar que a pessoa "atende a
+ * todos os pré-requisitos" sem que a conta tenha sido feita, nem transformar
+ * um "diferencial" escrito na vaga em "certificação obrigatória".
+ */
+function requirementNotes(job: string, input: DossierInput, n: number): string[] {
+  const found = findRequirements(job);
+  if (found.length === 0) return [];
+
+  const document = input.analysis.lines.join('\n');
+  const months = totalMonths(input.analysis.periods, { now: input.now ?? new Date() });
+
+  const detail = (r: Requirement): string => {
+    if (r.kind === 'anos' && r.years !== undefined) {
+      const diff = months - r.years * 12;
+      return (
+        `exige ${plural(r.years, 'ano', 'anos')}` +
+        ` | somado no documento: ${formatDuration(months)}` +
+        ` | diferença: ${diff < 0 ? '-' : '+'}${formatDuration(Math.abs(diff))}`
+      );
+    }
+    if (r.kind === 'certificacao') {
+      const siglas = acronymsIn(r.quote);
+      if (siglas.length === 0) return 'nenhuma sigla nomeada na frase';
+      return siglas
+        .map((s) => `${s}: ${inDocument(document, s) ? 'aparece' : 'não aparece'} no documento`)
+        .join(' | ');
+    }
+    return 'confira contra a seção correspondente do documento';
+  };
+
+  return [
+    `- **Requisitos que a Vaga ${n} declara:**`,
+    ...found.map(
+      (r) =>
+        `  - ${KIND_LABEL[r.kind]} (modalidade declarada: ${r.modality}) — ${detail(r)}` +
+        `\n    - "${quote(r.quote)}"`,
+    ),
+    '  - A modalidade é a palavra que a vaga usou. Não promova "diferencial" a' +
+      ' obrigatório, e não trate como cumprido o que não foi comparado.',
+  ];
+}
+
+/**
  * Quantos termos a tabela mostra.
  *
  * Vinte cabem numa tela e cobrem o vocabulário que se repete. Abaixo disso a
@@ -686,6 +741,8 @@ function jobsBlock(input: DossierInput): string {
     ...filled.flatMap((job, i) => [
       `### Vaga ${i + 1}`,
       ...jobNotes(job, input, i + 1, odd.includes(i)),
+      '',
+      ...requirementNotes(job, input, i + 1),
       '',
       job,
       '',
