@@ -435,3 +435,22 @@ describe('cruzamentos com a vaga', () => {
     expect(d).not.toContain('menciona empregador do histórico');
   });
 });
+
+describe('tabela de vocabulário', () => {
+  const V1 = 'Carteira de clientes alta renda com foco em renda fixa e previdência.';
+  const V2 = 'Atuação com carteira de clientes de alta renda e oferta de renda fixa.';
+
+  it('sai contada, com a coluna de presença no documento', () => {
+    const cv = ['EXPERIÊNCIA', 'jan/2020 - atual', 'Atendi a carteira de clientes da agência.'].join(
+      '\n',
+    );
+    const d = buildDossier(fromText(cv, { jobs: [V1, V2] }));
+    expect(d).toContain('### Vocabulário das vagas, contado');
+    expect(d).toContain('| Carteira | 2 | 2 | sim |');
+    expect(d).toContain('| renda fixa | 2 | 2 | não |');
+  });
+
+  it('sem vaga colada, a tabela não existe', () => {
+    expect(buildDossier(input())).not.toContain('Vocabulário das vagas');
+  });
+});

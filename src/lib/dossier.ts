@@ -16,6 +16,7 @@ import { stripAccents } from './companies';
 import { redact, summarizePii, type PiiFinding, type PiiKind } from './pii';
 import { CAREER_PROMPT } from './prompt';
 import { sectionNames } from './repetition';
+import { jobVocabulary } from './vocabulary';
 import { AXES, AXIS_EMPTY, AXIS_LABEL, type ScopePanel } from './scope';
 import {
   detectHeading,
@@ -614,6 +615,44 @@ function oddJobs(filled: string[], target: string): number[] {
   return off.length === filled.length ? [] : off;
 }
 
+/**
+ * Quantos termos a tabela mostra.
+ *
+ * Vinte cabem numa tela e cobrem o vocabulário que se repete. Abaixo disso a
+ * contagem já é cauda longa, e uma tabela de duzentas linhas não é insumo:
+ * é o texto das vagas de novo, em outra formatação.
+ */
+const VOCABULARY_ROWS = 20;
+
+/** A tabela de palavras-chave, contada em vez de inferida. */
+function vocabularyBlock(input: DossierInput): string[] {
+  const terms = jobVocabulary(input.jobs, input.analysis.lines.join('\n'));
+  if (terms.length === 0) return [];
+
+  const shown = terms.slice(0, VOCABULARY_ROWS);
+  return [
+    '',
+    '### Vocabulário das vagas, contado',
+    '',
+    'Contagem do aplicativo sobre o texto colado. Não recalcule, e não invente',
+    'termo que não esteja aqui. "Vagas" é em quantas das vagas o termo aparece —',
+    'é o que separa vocabulário do mercado do jeito de escrever de uma empresa.',
+    '',
+    '| Termo | Vagas | Ocorrências | Está no documento |',
+    '| --- | --- | --- | --- |',
+    ...shown.map(
+      (t) => `| ${quote(t.term)} | ${t.jobs} | ${t.count} | ${t.present ? 'sim' : 'não'} |`,
+    ),
+    ...(terms.length > shown.length
+      ? [
+          '',
+          `Mais ${plural(terms.length - shown.length, 'termo ficou', 'termos ficaram')}` +
+            ' abaixo do corte da tabela.',
+        ]
+      : []),
+  ];
+}
+
 function jobsBlock(input: DossierInput): string {
   const jobs = input.jobs;
   const filled = jobs.map((j) => j.trim()).filter((j) => j !== '');
@@ -651,6 +690,7 @@ function jobsBlock(input: DossierInput): string {
       job,
       '',
     ]),
+    ...vocabularyBlock(input),
   ].join('\n');
 }
 
