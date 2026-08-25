@@ -82,8 +82,24 @@ export type ScopePanel = {
  * `needsNumber` existe porque "clientes" e "unidades" aparecem em quase todo
  * currículo. Sem dígito no mesmo parágrafo não é indicador de escopo, é
  * vocabulário — e o eixo viraria ruído, que é o que este desenho evita.
+ *
+ * `needsPeople` é o mesmo remédio para os radicais de liderança. Rodados
+ * contra os seis currículos reais, `gerenci` acertou 8 trechos e 7 eram
+ * "relatórios gerenciais", "gestão de dashboards gerenciais" e "gerenciamento
+ * de projetos" — o adjetivo e a atividade, não a chefia; `manag` acertou
+ * "Wealth Management". Liderança é liderança de gente, então o termo só conta
+ * com um substantivo de gente por perto. Vale só para `proven`: numa lista de
+ * competências, "Liderança" sozinha é a coluna *prometido* da regra 5.
  */
-const TERMS: { axis: ScopeAxis; pattern: string; needsNumber?: boolean }[] = [
+const PEOPLE =
+  /\b(equipes?|times?|pessoas|colaboradores|funcionarios|liderados|subordinados|analistas|estagiarios|profissionais|staff|teams?|direct reports?|headcount)\b/;
+
+const TERMS: {
+  axis: ScopeAxis;
+  pattern: string;
+  needsNumber?: boolean;
+  needsPeople?: boolean;
+}[] = [
   // Escopo de decisão — pt
   { axis: 'decisao', pattern: 'defin' },
   { axis: 'decisao', pattern: 'decid' },
@@ -110,7 +126,15 @@ const TERMS: { axis: ScopeAxis; pattern: string; needsNumber?: boolean }[] = [
   { axis: 'responsabilidade', pattern: 'receita' },
   { axis: 'responsabilidade', pattern: 'responsavel por' },
   { axis: 'responsabilidade', pattern: 'sob minha' },
-  { axis: 'responsabilidade', pattern: 'gestao d' },
+  // "gestão de" pede o objeto. Sozinho era o termo mais frequente dos seis
+  // currículos — 17 acertos, e 15 eram gestão de indicadores, de dashboards,
+  // de demandas, da documentação, da reputação da marca. Gerir uma atividade
+  // não é escopo de responsabilidade; gerir dinheiro, gente ou abrangência é.
+  {
+    axis: 'responsabilidade',
+    pattern:
+      'gest(ao|ionar|ionei) d[aeo]s? (caixa|fluxo de caixa|orcament|verba|custos|capital|divida|carteira|contas|equipe|time|pessoas|pessoal|area|areas|unidade|regia|filia|portfolio)',
+  },
   { axis: 'responsabilidade', pattern: 'carteira d' },
   { axis: 'responsabilidade', pattern: 'ambito (nacional|regional|global)' },
   { axis: 'responsabilidade', pattern: 'clientes', needsNumber: true },
@@ -133,23 +157,23 @@ const TERMS: { axis: ScopeAxis; pattern: string; needsNumber?: boolean }[] = [
   { axis: 'responsabilidade', pattern: 'countries', needsNumber: true },
 
   // Liderança — pt
-  { axis: 'lideranca', pattern: 'lider' },
-  { axis: 'lideranca', pattern: 'gerenci' },
-  { axis: 'lideranca', pattern: 'coorden' },
+  { axis: 'lideranca', pattern: 'lider', needsPeople: true },
+  { axis: 'lideranca', pattern: 'gerenci', needsPeople: true },
+  { axis: 'lideranca', pattern: 'coorden', needsPeople: true },
   { axis: 'lideranca', pattern: 'subordinad' },
   { axis: 'lideranca', pattern: 'reportavam' },
-  { axis: 'lideranca', pattern: 'mentor' },
-  { axis: 'lideranca', pattern: 'chefi' },
+  { axis: 'lideranca', pattern: 'mentor', needsPeople: true },
+  { axis: 'lideranca', pattern: 'chefi', needsPeople: true },
   // "equipe" sozinho pega "trabalhei em equipe", que é o oposto de
   // evidência de liderança. Só conta com complemento.
   { axis: 'lideranca', pattern: 'equipe (de|com) ' },
   { axis: 'lideranca', pattern: 'time (de|com) ' },
   // Liderança — en
-  { axis: 'lideranca', pattern: 'led\\b' },
-  { axis: 'lideranca', pattern: 'leader' },
-  { axis: 'lideranca', pattern: 'manag' },
-  { axis: 'lideranca', pattern: 'supervis' },
-  { axis: 'lideranca', pattern: 'coach' },
+  { axis: 'lideranca', pattern: 'led\\b', needsPeople: true },
+  { axis: 'lideranca', pattern: 'leader', needsPeople: true },
+  { axis: 'lideranca', pattern: 'manag', needsPeople: true },
+  { axis: 'lideranca', pattern: 'supervis', needsPeople: true },
+  { axis: 'lideranca', pattern: 'coach', needsPeople: true },
   { axis: 'lideranca', pattern: 'team (of|with) ' },
   { axis: 'lideranca', pattern: 'direct report' },
   { axis: 'lideranca', pattern: 'headcount' },
@@ -172,14 +196,23 @@ const CLAIM_SECTIONS: SectionKind[] = ['resumo', 'competencias'];
 
 const HAS_NUMBER = /\d/;
 
-/** Eixos que o parágrafo aciona, sem repetir eixo. */
-function axesOf(quote: string): ScopeAxis[] {
+/**
+ * Eixos que o parágrafo aciona, sem repetir eixo.
+ *
+ * `proven` exige o substantivo de gente junto do radical de liderança. Em
+ * Competências e Resumo a exigência apagaria a coluna *prometido* inteira:
+ * lá a evidência é a palavra "Liderança" sozinha numa lista, e é justamente
+ * essa palavra sozinha que a regra 5 manda contrastar com o comprovado.
+ */
+function axesOf(quote: string, strict: boolean): ScopeAxis[] {
   const flat = stripAccents(quote).toLowerCase();
   const hasNumber = HAS_NUMBER.test(flat);
+  const hasPeople = PEOPLE.test(flat);
   const hit = new Set<ScopeAxis>();
 
   for (const m of MATCHERS) {
     if (m.needsNumber && !hasNumber) continue;
+    if (strict && m.needsPeople && !hasPeople) continue;
     if (m.re.test(flat)) hit.add(m.axis);
   }
 
@@ -198,14 +231,16 @@ const textOf = (sections: AssignedSection[], kinds: SectionKind[]) =>
  * isolada casar — o termo ficou espalhado no corte —, aí sim o parágrafo
  * inteiro serve de citação.
  */
-function evidenceIn(paragraph: string): ScopeEvidence[] {
+function evidenceIn(paragraph: string, strict: boolean): ScopeEvidence[] {
   const found: ScopeEvidence[] = [];
 
   for (const quote of sentences(paragraph)) {
-    for (const axis of axesOf(quote)) found.push({ axis, quote });
+    for (const axis of axesOf(quote, strict)) found.push({ axis, quote });
   }
 
-  return found.length > 0 ? found : axesOf(paragraph).map((axis) => ({ axis, quote: paragraph }));
+  return found.length > 0
+    ? found
+    : axesOf(paragraph, strict).map((axis) => ({ axis, quote: paragraph }));
 }
 
 export function findScopeEvidence(sections: AssignedSection[]): ScopePanel {
@@ -217,7 +252,7 @@ export function findScopeEvidence(sections: AssignedSection[]): ScopePanel {
     // Cargo/empresa não é texto de resultado — `paragraphs` já marca.
     if (p.isHeader) continue;
 
-    const found = evidenceIn(p.text);
+    const found = evidenceIn(p.text, true);
     if (found.length > 0) {
       proven.push(...found);
     } else if (p.text.length >= MIN_LEN) {
@@ -227,7 +262,7 @@ export function findScopeEvidence(sections: AssignedSection[]): ScopePanel {
 
   for (const p of paragraphs(textOf(sections, CLAIM_SECTIONS))) {
     // Sem piso de tamanho: em Competências a evidência é uma palavra solta.
-    claimed.push(...evidenceIn(p.text));
+    claimed.push(...evidenceIn(p.text, false));
   }
 
   return {

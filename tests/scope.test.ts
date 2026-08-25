@@ -122,3 +122,46 @@ describe('findScopeEvidence', () => {
     expect(p.emptyAxes).toHaveLength(3);
   });
 });
+
+describe('objeto do termo', () => {
+  it.each([
+    'Elaborar relatórios gerenciais e demonstrativos financeiros para a diretoria.',
+    'Atuação no desenvolvimento e gestão de dashboards gerenciais em Power BI.',
+    'Gerenciamento de vários projetos de alta complexidade, garantindo a entrega.',
+    'Supervisionar os projetos de construção e reforma das unidades organizacionais.',
+    'Transformando o atendimento transacional em uma jornada de Wealth Management.',
+  ])('não conta %s como liderança', (linha) => {
+    expect(quotes(panelOf(['EXPERIÊNCIA', linha].join('\n')), 'lideranca')).toEqual([]);
+  });
+
+  it.each([
+    'Gerenciar atividades e equipes multidisciplinares das áreas de compras e contratos.',
+    'Coordenação de uma equipe de 7 atendimentos em Minas para o projeto da agência.',
+    'Mentoria de analistas recém-chegados durante todo o ciclo de integração da área.',
+  ])('conta %s como liderança', (linha) => {
+    expect(quotes(panelOf(['EXPERIÊNCIA', linha].join('\n')), 'lideranca')).toEqual([linha]);
+  });
+
+  it('a palavra solta em Competências continua sendo promessa', () => {
+    // A exigência de objeto vale só para o comprovado: numa lista de
+    // competências é a palavra sozinha que a regra 5 manda contrastar.
+    const p = panelOf(['COMPETÊNCIAS', 'Liderança', 'Gestão de projetos'].join('\n'));
+    expect(p.claimed.filter((e) => e.axis === 'lideranca')).not.toEqual([]);
+  });
+
+  it.each([
+    'Realizar a gestão de indicadores de cada setor, garantindo o padrão de qualidade.',
+    'Controle e gestão da documentação cadastral junto aos órgãos reguladores do setor.',
+    'Especialista na gestão de público sênior, garantindo suporte em operações críticas.',
+  ])('não conta %s como responsabilidade', (linha) => {
+    expect(quotes(panelOf(['EXPERIÊNCIA', linha].join('\n')), 'responsabilidade')).toEqual([]);
+  });
+
+  it.each([
+    'Gestão de fluxo de caixa e operações bancárias para a região das Américas.',
+    'Atuação na gestão de capital de giro, seguros, garantias e instrumentos de hedge.',
+    'Realização de ações de gestão de pessoas, como recrutamento e desligamentos.',
+  ])('conta %s como responsabilidade', (linha) => {
+    expect(quotes(panelOf(['EXPERIÊNCIA', linha].join('\n')), 'responsabilidade')).toEqual([linha]);
+  });
+});

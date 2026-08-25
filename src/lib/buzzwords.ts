@@ -9,6 +9,8 @@
  * reescrever, seja a pessoa, seja o modelo no chat externo.
  */
 
+import { stripAccents } from './companies';
+
 export type BuzzwordFinding = {
   term: string;
   quote: string;
@@ -57,17 +59,61 @@ export const BUZZWORDS = [
   'fera em',
   'antenado',
   'antenada',
+  // Rodados contra os currículos reais: a lista acima acertava um termo em
+  // dois dos seis documentos, e os quatro silenciosos estavam cheios de
+  // jargão. O que faltava não era um clichê exótico, era o vocabulário comum.
+  'melhoria contínua',
+  'foco no cliente',
+  'foco em resultados',
+  'alto desempenho',
+  'alta complexidade',
+  'trabalho em equipe',
+  'relacionamento interpessoal',
+  'liderança exemplar',
+  'liderança inspiradora',
+  'senso de dono',
+  'senso de urgência',
+  'agregar valor',
+  'vasta experiência',
+  'ampla experiência',
+  'sólido conhecimento',
+  'sólidos conhecimentos',
+  'visão de negócio',
+  'visão 360',
+  'perfil analítico',
+  'movido por desafios',
+  'gosto por desafios',
+  'excelência operacional',
+  'busca pela excelência',
 ] as const;
 
 const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-const PATTERN = new RegExp(`\\b(${BUZZWORDS.map(escapeRegex).join('|')})\\b`, 'gi');
+const PATTERN = new RegExp(
+  `\\b(${BUZZWORDS.map((b) => escapeRegex(stripAccents(b))).join('|')})\\b`,
+  'gi',
+);
 
-/** Ocorrências, na ordem em que aparecem em `text`. */
+/**
+ * Ocorrências, na ordem em que aparecem em `text`.
+ *
+ * O casamento roda sobre o texto sem acento, e a lista é escrita com acento:
+ * currículo em caixa alta perde acento na exportação ("VISAO ESTRATEGICA"), e
+ * dois dos seis currículos reais escrevem "melhoria continua" sem o til. Manter
+ * as duas grafias na lista seria manter a mesma decisão em dois lugares — o
+ * mesmo motivo do `stripAccents` em companies.ts.
+ *
+ * `quote` sai do texto original, não do achatado: a citação é verbatim.
+ * Ver CLAUDE.md > Citação obrigatória.
+ */
 export function findBuzzwords(text: string): BuzzwordFinding[] {
-  return [...text.matchAll(PATTERN)].map((m) => ({
-    term: m[0].toLowerCase(),
-    quote: m[0],
-    index: m.index,
-  }));
+  const flat = stripAccents(text);
+  // Decomposição sem forma precomposta muda o comprimento, e aí o índice do
+  // achatado não aponta mais para o mesmo caractere do original.
+  const haystack = flat.length === text.length ? flat : text;
+
+  return [...haystack.matchAll(PATTERN)].map((m) => {
+    const quote = text.slice(m.index, m.index + m[0].length);
+    return { term: quote.toLowerCase(), quote, index: m.index };
+  });
 }
