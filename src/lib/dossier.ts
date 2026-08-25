@@ -355,7 +355,7 @@ function answersBlock(metrics: DossierInput['metrics']): string {
  */
 function findingsBlock(input: DossierInput): string {
   const now = input.now ?? new Date();
-  const { periods, overlaps, buzzwords } = input.analysis;
+  const { periods, overlaps, buzzwords, silentStints } = input.analysis;
   const lines = [
     '## Achados determinísticos',
     '',
@@ -406,6 +406,19 @@ function findingsBlock(input: DossierInput): string {
       ),
       '  - Pergunte o que eram — cargo paralelo, consultoria, sociedade, promoção' +
         ' registrada como vínculo novo — antes de tratar como trajetória sequencial.',
+    );
+  }
+
+  // Vínculo listado e não descrito é o defeito que o modelo sozinho não
+  // aponta: quem lê um texto ausente não estranha nada. Sai como o detector
+  // viu — não há linha entre esta data e a próxima —, sem veredito: currículo
+  // de duas colunas imprime a descrição ao lado da data, e aí não falta nada.
+  if (silentStints.length > 0) {
+    lines.push(
+      `- **Vínculos sem nenhuma linha de descrição abaixo da data (${silentStints.length}):**`,
+      ...silentStints.map((s) => `  - ${range(s.period)} — ${s.label}`),
+      '  - Confira no `## Documento` antes de cobrar: se a descrição estiver lá em' +
+        ' outra posição, o detector é que não a viu.',
     );
   }
 

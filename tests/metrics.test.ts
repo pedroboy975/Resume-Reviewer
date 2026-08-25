@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { extractCompanies } from '../src/lib/companies';
 import { parsePeriods } from '../src/lib/dates';
-import { findMissingMetrics, metricKey } from '../src/lib/metrics';
+import { findMissingMetrics, metricKey, silentStints } from '../src/lib/metrics';
 
 describe('findMissingMetrics', () => {
   it('sinaliza bullet sem nenhum dígito', () => {
@@ -173,5 +173,42 @@ describe('ordem das perguntas', () => {
 
     const out = findMissingMetrics(solto, extractCompanies(solto, parsePeriods(solto)));
     expect(out[out.length - 1].label).toBeNull();
+  });
+});
+
+describe('silentStints', () => {
+  const stintsOf = (text: string) => extractCompanies(text, parsePeriods(text));
+
+  it('aponta o vínculo listado sem nenhuma linha de descrição', () => {
+    const text = [
+      'Empresa Atual',
+      'Gerente',
+      'jan/2024 - atual',
+      '',
+      'Empresa Anterior',
+      'Analista',
+      'jan/2020 - dez/2023',
+      'Conduzi a negociação anual com os fornecedores estratégicos da operação.',
+    ].join('\n');
+
+    expect(silentStints(text, stintsOf(text)).map((s) => s.label)).toEqual([
+      'Empresa Atual — Gerente',
+    ]);
+  });
+
+  it('linha curta demais não conta como descrição', () => {
+    // Abaixo de MIN_LEN é rótulo, cidade ou sobra de layout — não descrição.
+    const text = ['Empresa Alfa', 'Gerente', 'jan/2020 - atual', 'Vendas.'].join('\n');
+    expect(silentStints(text, stintsOf(text))).toHaveLength(1);
+  });
+
+  it('o último vínculo enxerga tudo que vem depois dele', () => {
+    const text = [
+      'Empresa Alfa',
+      'Gerente',
+      'jan/2020 - atual',
+      'Reformulei o processo de atendimento consultivo da unidade inteira.',
+    ].join('\n');
+    expect(silentStints(text, stintsOf(text))).toEqual([]);
   });
 });

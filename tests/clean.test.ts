@@ -132,3 +132,11 @@ describe('frase sem número dentro de parágrafo que tem número', () => {
     ]);
   });
 });
+
+describe('marcador em fonte de símbolo', () => {
+  it('some do texto em vez de grudar no nome da empresa', () => {
+    // U+F0E8: marcador Wingdings de um dos currículos reais. Não é espaço para
+    // `trim()` nem marcador para `paragraphs` — sobrava colado na frente.
+    expect(cleanText(' Restaurante Hokkaido').trim()).toBe('Restaurante Hokkaido');
+  });
+});

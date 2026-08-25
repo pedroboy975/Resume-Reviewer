@@ -28,7 +28,7 @@ import {
   type Overlap,
   type Period,
 } from './dates';
-import { findMissingMetrics, type MissingMetricLine } from './metrics';
+import { findMissingMetrics, silentStints, type MissingMetricLine } from './metrics';
 import { findScopeEvidence, type ScopePanel } from './scope';
 import { experienceText, groupAssignedLines, type AssignedSection, type SectionKind } from './sections';
 
@@ -45,6 +45,8 @@ export type Analysis = {
   missingMetrics: MissingMetricLine[];
   /** Vínculos com rótulo reconhecido, do mais antigo para o mais recente. */
   stints: JobStint[];
+  /** Vínculos sem nenhuma linha de descrição abaixo da data. */
+  silentStints: JobStint[];
   /** Trechos que sustentam cada eixo de escopo. Não é veredito de nível. */
   scope: ScopePanel;
 };
@@ -80,6 +82,7 @@ export function analyze(
     buzzwords: findBuzzwords(text),
     missingMetrics: findMissingMetrics(experiencia, stints),
     stints: chronological(stints),
+    silentStints: chronological(silentStints(experiencia, stints)),
     scope: findScopeEvidence(sections),
   };
 }

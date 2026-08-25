@@ -37,6 +37,17 @@ export const isPageFurniture = (line: string) => PAGE_FURNITURE.test(line.trim()
 const GLUED_SENTENCE = /(?<!\b[A-ZÀ-Ý])([.;])(?=[A-ZÀ-Ý])/g;
 
 /**
+ * Marcador de lista desenhado em fonte de símbolos (Wingdings e parentes).
+ *
+ * O caractere vem da Área de Uso Privado do Unicode, onde nada tem significado
+ * fora da fonte que o desenhou. Num dos currículos reais o marcador é U+F0E8,
+ * e ele não é espaço para `trim()` nem marcador para `paragraphs` — sobrava
+ * grudado na frente do nome da empresa em todo vínculo. Vira espaço: o glifo
+ * não existe fora do PDF, e o que ele separava continua separado.
+ */
+const PRIVATE_USE = /\p{Co}/gu;
+
+/**
  * Linha de localidade do LinkedIn colada na primeira responsabilidade:
  * `"Belo Horizonte, Minas Gerais, Brasil Responsável pela gestão de caixa"`.
  *
@@ -96,6 +107,6 @@ export function cleanText(text: string): string {
   return text
     .split('\n')
     .filter((line) => !isPageFurniture(line))
-    .map((line) => ungueLocation(line.replace(GLUED_SENTENCE, '$1 ')))
+    .map((line) => ungueLocation(line.replace(PRIVATE_USE, ' ').replace(GLUED_SENTENCE, '$1 ')))
     .join('\n');
 }

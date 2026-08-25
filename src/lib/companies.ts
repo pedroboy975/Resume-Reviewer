@@ -101,9 +101,21 @@ function isCandidate(line: string): boolean {
   return true;
 }
 
+/**
+ * O rótulo do campo que a data preenchia, agora sem a data.
+ *
+ * "Restaurante Hokkaido – Cargo: Gerente – Período: 1997 a 2006" perde a data
+ * e sobra com um "– Período: ." pendurado no fim. `BOILERPLATE` não pega:
+ * lá a linha inteira precisa ser a palavra.
+ */
+const DANGLING_FIELD = /[\s|•\-–—]*\b(per[íi]odo|data|dura[çc][ãa]o)\b[\s:.]*$/i;
+
 /** Texto da própria linha da data, com a data e a duração entre parênteses removidas. */
 function sameLineLabel(line: string, period: Period): string | null {
-  const stripped = line.replace(period.quote, '').replace(/\(\s*\d[^()]*\)\s*$/, '');
+  const stripped = line
+    .replace(period.quote, '')
+    .replace(/\(\s*\d[^()]*\)\s*$/, '')
+    .replace(DANGLING_FIELD, '');
   const trimmed = clean(stripped);
   if (trimmed.length < MIN_LEN || trimmed.length > MAX_LEN) return null;
   if (isBoilerplate(trimmed)) return null;
