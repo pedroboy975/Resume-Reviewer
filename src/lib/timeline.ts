@@ -5,7 +5,14 @@
  * some ou lacuna no lugar errado é erro de aritmética, não de CSS.
  */
 
-import { monthsBetween, toYearMonth, type Gap, type Period, type YearMonth } from './dates';
+import {
+  durationMonths,
+  monthsBetween,
+  toYearMonth,
+  type Gap,
+  type Period,
+  type YearMonth,
+} from './dates';
 
 export type Bar = {
   period: Period;
@@ -66,7 +73,9 @@ export function buildTimeline(
     months,
     bars: ordered.map(({ period, end }) => ({
       period,
-      months: monthsBetween(period.start, end),
+      // A barra é geometria — vão entre duas datas. O número ao lado dela é
+      // duração, e duração conta as duas pontas. Ver `durationMonths`.
+      months: durationMonths(period, now),
       ...place(period.start, end),
     })),
     gaps: gaps.map((gap) => ({ ...gap, ...place(gap.from, gap.to) })),

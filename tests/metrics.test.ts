@@ -88,3 +88,46 @@ describe('findMissingMetrics — vínculo do trecho', () => {
     expect(findMissingMetrics(orphan, [])[0].label).toBeNull();
   });
 });
+
+/**
+ * Três formas reais de currículo em que o cabeçalho do vínculo e a descrição
+ * se misturam. As três vieram de fixtures, e as duas primeiras custaram o
+ * documento inteiro ou o começo de cada citação.
+ */
+describe('onde termina o cabeçalho do vínculo', () => {
+  it('descrição acima da data não é cabeçalho, por mais que a data venha depois', () => {
+    // Currículo de duas colunas: cargo à esquerda, descrição à direita, data
+    // abaixo das duas. A regra antiga descartava a experiência inteira.
+    const text = [
+      'Realizo prospecção, abordagem e mapeamento de turmas de formatura em',
+      'Minas Gerais. Levantamento de briefing e apresentação de proposta comercial.',
+      '01/2018 - em andamento',
+    ].join('\n');
+
+    expect(findMissingMetrics(text).length).toBeGreaterThan(0);
+  });
+
+  it('rótulo em caixa alta abaixo da data não entra na citação', () => {
+    const text = [
+      '01/04/2019 – ATUAL',
+      'LÍDER DE AREA, OFFERWISE PESQUISA DE MERCADO',
+      'Ser referência para as equipes, auxiliando nas dúvidas e soluções do time.',
+    ].join('\n');
+
+    expect(findMissingMetrics(text).map((m) => m.quote)).toEqual([
+      'Ser referência para as equipes, auxiliando nas dúvidas e soluções do time.',
+    ]);
+  });
+
+  it('linha de descrição quebrada abaixo da data continua sendo descrição', () => {
+    // Guarda contra a primeira versão da regra acima, que aceitava qualquer
+    // linha curta sem pontuação final — e comia a descrição da pessoa.
+    const text = [
+      'novembro de 2023 - junho de 2026',
+      'Atuação focada na gestão consultiva de carteira e prospecção estratégica,',
+      'com o objetivo central de migração para o segmento de Alta Renda.',
+    ].join('\n');
+
+    expect(findMissingMetrics(text)[0].quote).toContain('Atuação focada na gestão consultiva');
+  });
+});

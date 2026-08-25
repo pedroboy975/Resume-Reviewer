@@ -18,7 +18,16 @@
 
 import { findBuzzwords, type BuzzwordFinding } from './buzzwords';
 import { chronological, extractCompanies, type JobStint } from './companies';
-import { findGaps, parsePeriods, shortTenures, type Gap, type Period } from './dates';
+import {
+  chronological as chronologicalPeriods,
+  findGaps,
+  findOverlaps,
+  parsePeriods,
+  shortTenures,
+  type Gap,
+  type Overlap,
+  type Period,
+} from './dates';
 import { findMissingMetrics, type MissingMetricLine } from './metrics';
 import { findScopeEvidence, type ScopePanel } from './scope';
 import { experienceText, groupAssignedLines, type AssignedSection, type SectionKind } from './sections';
@@ -26,9 +35,12 @@ import { experienceText, groupAssignedLines, type AssignedSection, type SectionK
 export type Analysis = {
   lines: string[];
   sections: AssignedSection[];
+  /** Mais antigo primeiro. O documento raramente vem nessa ordem. */
   periods: Period[];
   gaps: Gap[];
   shortTenures: Period[];
+  /** Pares de períodos que correm ao mesmo tempo. Não é veredito: é pergunta. */
+  overlaps: Overlap[];
   buzzwords: BuzzwordFinding[];
   missingMetrics: MissingMetricLine[];
   /** Vínculos com rótulo reconhecido, do mais antigo para o mais recente. */
@@ -54,16 +66,17 @@ export function analyze(
   // Datas de formação ou de certificado abririam lacuna de emprego que não
   // existe: só o que a pessoa atribuiu a Experiência entra na aritmética.
   const experiencia = experienceText(sections);
-  const periods = parsePeriods(experiencia);
   // Ordem do documento: é ela que diz qual vínculo cobre cada trecho abaixo.
-  const stints = extractCompanies(experiencia, periods);
+  const inDocument = parsePeriods(experiencia);
+  const stints = extractCompanies(experiencia, inDocument);
 
   return {
     lines,
     sections,
-    periods,
-    gaps: findGaps(periods, { now }),
-    shortTenures: shortTenures(periods, { now }),
+    periods: chronologicalPeriods(inDocument),
+    gaps: findGaps(inDocument, { now }),
+    shortTenures: shortTenures(inDocument, { now }),
+    overlaps: findOverlaps(inDocument, { now }),
     buzzwords: findBuzzwords(text),
     missingMetrics: findMissingMetrics(experiencia, stints),
     stints: chronological(stints),

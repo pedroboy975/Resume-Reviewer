@@ -8,6 +8,8 @@
  * para cima. Por isso toda ordenação vertical é decrescente.
  */
 
+import { cleanText } from './clean';
+
 export type Item = {
   str: string;
   /** borda esquerda */
@@ -152,10 +154,33 @@ export function pageToText(page: Page): string {
   return out.filter((l) => l !== '').join('\n');
 }
 
-/** Documento inteiro. Páginas separadas por linha em branco. */
+/** A última linha da página fecha uma frase. */
+const CLOSED = /[.;:!?]\s*$/;
+/** A primeira linha da página seguinte continua a frase anterior. */
+const CONTINUES = /^[a-zà-ÿ(]/;
+
+/**
+ * Documento inteiro. Páginas separadas por linha em branco — menos quando a
+ * frase atravessa a quebra.
+ *
+ * O `pdfjs` não sabe que uma frase continua na página seguinte, e a linha em
+ * branco entre páginas é fronteira de parágrafo para tudo a jusante. Uma
+ * responsabilidade cortada ao meio virava dois trechos, o primeiro terminando
+ * no ar. Quando a página fecha sem pontuação e a próxima abre em minúscula, os
+ * dois pedaços são a mesma frase: junta com quebra simples.
+ *
+ * A limpeza de `clean.ts` roda aqui, antes da junção, porque é aqui que a
+ * fronteira de página ainda existe: o rodapé precisa sair antes, senão fica
+ * entre os dois pedaços e a costura não acontece.
+ */
 export function documentToText(pages: Page[]): string {
-  return pages
-    .map(pageToText)
-    .filter((t) => t.trim() !== '')
-    .join('\n\n');
+  const texts = pages
+    .map((page) => cleanText(pageToText(page)).trim())
+    .filter((t) => t !== '');
+
+  return texts.reduce((acc, page, i) => {
+    if (i === 0) return page;
+    const stitch = !CLOSED.test(acc) && CONTINUES.test(page);
+    return `${acc}${stitch ? '\n' : '\n\n'}${page}`;
+  }, '');
 }

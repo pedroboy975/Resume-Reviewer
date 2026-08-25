@@ -77,7 +77,10 @@ const NAMES = [...MONTH_INDEX.keys()].sort((a, b) => b.length - a.length).join('
 const NOW_WORDS = 'atual|atualmente|presente|present|current|hoje|momento|em andamento';
 // O separador em palavra exige espaço dos dois lados. `\b` não serve: "á" não
 // é caractere de palavra para o motor de regex, e a fronteira nunca casa.
-const SEPARATOR = String.raw`(?:\s*[-–—]{1,2}\s*|\s+(?:a|á|à|até|to)\s+)`;
+// `ate` sem acento está aqui porque currículo em caixa alta costuma perder o
+// acento: "01/07/2017 ATE 01/03/2019" ficava sem período reconhecido, e com
+// ele a descrição do cargo seguinte era engolida pelo parágrafo anterior.
+const SEPARATOR = String.raw`(?:\s*[-–—]{1,2}\s*|\s+(?:a|á|à|até|ate|to)\s+)`;
 // dd/mm/aaaa, mm/aaaa, "março de 2020", "Março/2020", "mar 2020" ou só o ano.
 // As lookarounds impedem que "2010/2011" produza o token "10/2011".
 const TOKEN = String.raw`(?<![\d/])(?:\d{1,2}/\d{1,2}/\d{4}|\d{1,2}/\d{4}|(?:${NAMES})\.?\s*(?:de\s*|/\s*)?\d{4}|\d{4})(?![\d/])`;
@@ -150,10 +153,22 @@ export function parsePeriods(text: string): Period[] {
   return out;
 }
 
-/** Duração em meses. Período em andamento é medido até `now`. */
+/**
+ * Duração em meses, contando o primeiro e o último. Período em andamento é
+ * medido até `now`.
+ *
+ * O `+1` é o que separa duração de diferença. Quem trabalhou de fevereiro a
+ * maio trabalhou quatro meses, não três — e é isso que o LinkedIn escreve ao
+ * lado do período. Sem ele o app contradizia o próprio documento que estava
+ * lendo, sempre um mês para menos, em todos os vínculos.
+ *
+ * `findGaps` continua usando `monthsBetween` cru de propósito: lá o intervalo
+ * é o vão entre um emprego e o outro, e contar as pontas transformaria toda
+ * troca de emprego em lacuna de um mês.
+ */
 export function durationMonths(period: Period, now: Date = new Date()): number {
   const end = period.end ?? toYearMonth(now);
-  return Math.max(0, monthsBetween(period.start, end));
+  return Math.max(0, monthsBetween(period.start, end) + 1);
 }
 
 /**
@@ -180,6 +195,56 @@ export function findGaps(
   }
   return gaps;
 }
+
+/** Dois períodos que correm ao mesmo tempo. */
+export type Overlap = {
+  a: Period;
+  b: Period;
+  months: number;
+};
+
+/**
+ * Pares de períodos sobrepostos, na ordem em que começam.
+ *
+ * É a "ambiguidade de histórico" que a Fase 3 do prompt manda perguntar —
+ * cargo paralelo, consultoria durante o emprego, sociedade mantida em
+ * segundo plano. O app não decide o que é: só aponta que duas datas dividem
+ * os mesmos meses e devolve a pergunta.
+ *
+ * `minMonths` é 2 porque a sobreposição de um mês é troca de emprego: um
+ * vínculo termina em janeiro, o outro começa em janeiro, e ninguém teve dois
+ * empregos por isso.
+ */
+export function findOverlaps(
+  periods: Period[],
+  { minMonths = 2, now = new Date() }: { minMonths?: number; now?: Date } = {},
+): Overlap[] {
+  const sorted = chronological(periods);
+  const finish = (p: Period) => p.end ?? toYearMonth(now);
+  const out: Overlap[] = [];
+
+  for (let i = 0; i < sorted.length; i++) {
+    for (let j = i + 1; j < sorted.length; j++) {
+      const start = sorted[j].start; // já é o mais tardio: a lista está ordenada
+      const end = monthsBetween(finish(sorted[i]), finish(sorted[j])) < 0
+        ? finish(sorted[j])
+        : finish(sorted[i]);
+      const months = monthsBetween(start, end) + 1;
+      if (months >= minMonths) out.push({ a: sorted[i], b: sorted[j], months });
+    }
+  }
+  return out;
+}
+
+/**
+ * Mais antigo primeiro.
+ *
+ * O documento não vem ordenado: o export do LinkedIn lista o emprego atual
+ * primeiro, e cargo paralelo aparece onde couber. Emitir a lista na ordem de
+ * aparição entrega ao leitor uma linha do tempo que salta para trás no meio.
+ */
+export const chronological = (periods: Period[]): Period[] =>
+  [...periods].sort((a, b) => monthsBetween(b.start, a.start));
 
 /** Períodos mais curtos que `maxMonths`. Em andamento nunca conta: ainda está correndo. */
 export function shortTenures(

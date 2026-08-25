@@ -29,7 +29,7 @@
  */
 
 import { stripAccents } from './companies';
-import { MIN_LEN, paragraphs } from './metrics';
+import { MIN_LEN, paragraphs, sentences } from './metrics';
 import type { AssignedSection, SectionKind } from './sections';
 
 export type ScopeAxis = 'decisao' | 'responsabilidade' | 'lideranca';
@@ -170,17 +170,6 @@ export const AXES: ScopeAxis[] = ['decisao', 'responsabilidade', 'lideranca'];
  */
 const CLAIM_SECTIONS: SectionKind[] = ['resumo', 'competencias'];
 
-/**
- * Cada frase é uma citação; o parágrafo não.
- *
- * Currículo sem marcador de lista e sem linha em branco — que é a maioria —
- * faz `paragraphs` devolver o bloco inteiro do vínculo, do cargo até o último
- * resultado. Citar isso como evidência de um eixo é citar o emprego todo, e a
- * regra 3 do CLAUDE.md pede trecho, não parágrafo. Continua verbatim: o corte
- * é em fim de frase, sem reescrever nada.
- */
-const SENTENCE_SPLIT = /(?<=[.;])\s+/;
-
 const HAS_NUMBER = /\d/;
 
 /** Eixos que o parágrafo aciona, sem repetir eixo. */
@@ -204,15 +193,15 @@ const textOf = (sections: AssignedSection[], kinds: SectionKind[]) =>
     .join('\n');
 
 /**
- * Uma evidência por eixo e por frase. Se nenhuma frase isolada casar — o
- * termo ficou espalhado no corte —, o parágrafo inteiro serve de citação.
+ * Uma evidência por eixo e por frase — citar o parágrafo inteiro seria citar
+ * o emprego todo, e a regra 3 do CLAUDE.md pede trecho. Se nenhuma frase
+ * isolada casar — o termo ficou espalhado no corte —, aí sim o parágrafo
+ * inteiro serve de citação.
  */
 function evidenceIn(paragraph: string): ScopeEvidence[] {
   const found: ScopeEvidence[] = [];
 
-  for (const raw of paragraph.split(SENTENCE_SPLIT)) {
-    const quote = raw.trim();
-    if (quote === '') continue;
+  for (const quote of sentences(paragraph)) {
     for (const axis of axesOf(quote)) found.push({ axis, quote });
   }
 

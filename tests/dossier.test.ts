@@ -104,7 +104,7 @@ describe('buildDossier · dados pessoais', () => {
 describe('buildDossier · achados determinísticos', () => {
   it('lista os períodos com a duração calculada', () => {
     const dossier = buildDossier(fromText('Nome\nEXPERIÊNCIA\nA: 01/2015 - 01/2018'));
-    expect(dossier).toContain('01/2015 – 01/2018 (3 anos)');
+    expect(dossier).toContain('01/2015 – 01/2018 (3 anos e 1 mês)');
   });
 
   it('marca o período em que o documento só declarou o ano', () => {
@@ -112,27 +112,40 @@ describe('buildDossier · achados determinísticos', () => {
     expect(dossier).toContain('o documento só declarou o ano');
   });
 
-  it('descreve a lacuna encontrada', () => {
+  /**
+   * O contrato de M8: o intervalo entre dois vínculos sai em meses, dentro da
+   * sequência. O veredito `Lacunas: nenhuma acima de 4 meses` foi ignorado em
+   * todas as rodadas de teste — evidência crua é o que o modelo usa.
+   */
+  it('emite o intervalo entre vínculos como número, não como veredito', () => {
     const dossier = buildDossier(
       fromText('Nome\nEXPERIÊNCIA\nA: 01/2015 - 06/2016\nB: 03/2018 - 01/2020'),
     );
-    expect(dossier).toContain('**Lacunas entre empregos:** 06/2016 a 03/2018 (1 ano e 9 meses)');
+    expect(dossier).toContain('21 meses até o começo do próximo');
+    expect(dossier).not.toContain('Lacunas entre empregos');
   });
 
-  it('diz quando não há lacuna, em vez de omitir', () => {
+  it('carreira sem intervalo não ganha linha de intervalo nenhuma', () => {
     const dossier = buildDossier(fromText('Nome\nEXPERIÊNCIA\nA: 01/2015 - 01/2020'));
-    expect(dossier).toContain('nenhuma acima de 4 meses');
+    expect(dossier).not.toContain('até o começo do próximo');
   });
 
-  it('aponta permanência curta', () => {
+  it('não classifica permanência como curta: a duração já está na lista', () => {
     const dossier = buildDossier(
       fromText('Nome\nEXPERIÊNCIA\nA: 01/2015 - 05/2015\nB: 01/2016 - 01/2020'),
     );
-    expect(dossier).toContain('**Permanências abaixo de 12 meses:** 01/2015 – 05/2015');
+    expect(dossier).toContain('01/2015 – 05/2015 (5 meses)');
+    expect(dossier).not.toContain('Permanências abaixo de 12 meses');
   });
 
-  it('avisa o modelo para não recalcular', () => {
-    expect(buildDossier(input())).toContain('Não recalcule nem contradiga');
+  it('declara que os achados são dados, não conclusões', () => {
+    const dossier = buildDossier(input());
+    expect(dossier).toContain('Não recalcule.');
+    expect(dossier).toContain('O aplicativo não classifica nada aqui.');
+  });
+
+  it('sem termo genérico, diz que o limite é da lista e não do documento', () => {
+    expect(buildDossier(input())).toContain('ausência aqui é limite dela, não do documento');
   });
 
   it('mede o resumo contra o limite do campo Sobre', () => {
@@ -144,6 +157,45 @@ describe('buildDossier · achados determinísticos', () => {
     );
     expect(dossier).toContain('2700 caracteres');
     expect(dossier).toContain('acima do limite');
+  });
+});
+
+describe('buildDossier · respostas da pessoa', () => {
+  const comResposta = (answer: string) =>
+    input({
+      metrics: [
+        {
+          finding: { quote: 'Reformulei o processo de atendimento da unidade.', label: 'Banco A' },
+          answer,
+        },
+      ],
+    });
+
+  it('sai em bloco próprio, fora do documento e fora dos achados', () => {
+    const dossier = buildDossier(comResposta('15 clientes por dia'));
+    expect(dossier).toContain('## Respostas da pessoa');
+    expect(dossier.indexOf('## Respostas da pessoa')).toBeLessThan(
+      dossier.indexOf('## Achados determinísticos'),
+    );
+    expect(dossier.indexOf('## Documento')).toBeLessThan(dossier.indexOf('## Respostas da pessoa'));
+  });
+
+  it('diz que não é texto de currículo e manda usar no enquadramento', () => {
+    const dossier = buildDossier(comResposta('15 clientes por dia'));
+    expect(dossier).toContain('Não fazem parte do documento');
+    expect(dossier).toContain('cite-as no enquadramento de nível');
+    expect(dossier).toContain('"Reformulei o processo de atendimento da unidade." → 15 clientes');
+  });
+
+  it('trecho sem resposta mantém o placeholder e proíbe estimativa', () => {
+    const dossier = buildDossier(comResposta(''));
+    expect(dossier).toContain('### Ainda sem número (1)');
+    expect(dossier).toContain('[FALTA NÚMERO: o que medir]');
+    expect(dossier).toContain('Não estime');
+  });
+
+  it('o vínculo acompanha a citação, para não confundir empresas', () => {
+    expect(buildDossier(comResposta(''))).toContain('**Banco A** — "Reformulei');
   });
 });
 
@@ -205,12 +257,59 @@ describe('buildDossier · seção de contato', () => {
   });
 });
 
-describe('buildDossier · o que o formulário não coletou', () => {
-  it('manda perguntar números reais e ambiguidades de histórico', () => {
+describe('buildDossier · cabeçalho de estado', () => {
+  /** Um caso com tudo o que o gate exige: alvo, vaga, e nada ambíguo. */
+  const completo = () =>
+    fromText('Nome\nEXPERIÊNCIA\nEmpresa A\nAnalista\n01/2015 - 01/2020', {
+      context: { ...EMPTY_CONTEXT, targetRole: 'Gerente de Operações' },
+      jobs: ['Vaga colada: liderar operações.'],
+    });
+
+  it('vazio, para na Fase 3 e nomeia o que falta', () => {
     const dossier = buildDossier(input());
-    expect(dossier).toContain('Ainda não perguntado');
-    expect(dossier).toContain('números reais dos');
-    expect(dossier).toContain('ambiguidades de histórico');
+    expect(dossier).toContain('FASE INICIAL: 3');
+    expect(dossier).toContain('O cargo-alvo, que a pessoa ainda não declarou.');
+    expect(dossier).toContain('vagas-alvo, que ninguém colou');
+  });
+
+  it('completo, manda seguir até a Fase 4 sem parar', () => {
+    const dossier = buildDossier(completo());
+    expect(dossier).toContain('FASE INICIAL: 4');
+    expect(dossier).toContain('Não pare para pedir confirmação.');
+  });
+
+  it('não pede o que já foi respondido', () => {
+    expect(buildDossier(completo())).not.toContain('O cargo-alvo, que a pessoa');
+  });
+
+  it('período sobreposto sozinho já segura na Fase 3', () => {
+    const dossier = buildDossier(
+      fromText('Nome\nEXPERIÊNCIA\nA: 01/2015 - 01/2020\nB: 01/2016 - 01/2018', {
+        context: { ...EMPTY_CONTEXT, targetRole: 'Gerente de Operações' },
+        jobs: ['Vaga colada.'],
+      }),
+    );
+    expect(dossier).toContain('FASE INICIAL: 3');
+    expect(dossier).toContain('período sobreposto');
+  });
+
+  it('emite a sobreposição como par de datas, sem interpretar', () => {
+    const dossier = buildDossier(
+      fromText('Nome\nEXPERIÊNCIA\nA: 01/2019 - 01/2021\nB: 06/2020 - 09/2020'),
+    );
+    expect(dossier).toContain('Períodos que correm ao mesmo tempo (1)');
+    expect(dossier).toContain('01/2019 – 01/2021 e 06/2020 – 09/2020');
+  });
+
+  it('lista os períodos do mais antigo para o mais recente', () => {
+    // Ordem do documento é a do LinkedIn: atual primeiro. Não é a de leitura.
+    const dossier = buildDossier(
+      fromText('Nome\nEXPERIÊNCIA\nB: 03/2021 - 12/2023\nA: 01/2015 - 01/2018'),
+    );
+    // No bloco de achados. O `## Documento` acima continua na ordem do PDF,
+    // que é o que a pessoa vê no arquivo dela.
+    const achados = dossier.slice(dossier.indexOf('Períodos reconhecidos'));
+    expect(achados.indexOf('01/2015')).toBeLessThan(achados.indexOf('03/2021'));
   });
 
   it('com uma vaga só, avisa que o vocabulário é de uma empresa', () => {
@@ -225,7 +324,7 @@ describe('buildDossier · o que o formulário não coletou', () => {
 
 describe('buildDossier · duração por extenso', () => {
   it('concorda em número', () => {
-    const dossier = buildDossier(fromText('Nome\nEXPERIÊNCIA\nA: 01/2015 - 02/2016'));
+    const dossier = buildDossier(fromText('Nome\nEXPERIÊNCIA\nA: 01/2015 - 01/2016'));
     expect(dossier).toContain('1 ano e 1 mês');
     expect(dossier).not.toContain('1 meses');
   });

@@ -81,6 +81,16 @@ function isProse(s: string): boolean {
   return s.endsWith('.') && s.split(/\s+/).length > 6;
 }
 
+/**
+ * A linha tem cara de cargo/empresa, não de responsabilidade.
+ *
+ * Exportada porque `metrics.ts` precisa da mesma decisão: currículo que põe a
+ * data acima do rótulo faz o rótulo abrir o parágrafo da descrição, e a
+ * citação sai começando pelo nome da empresa. Ter duas definições de "isto é
+ * um rótulo" era garantir que uma delas ficasse para trás.
+ */
+export const isLabelLine = (line: string): boolean => isCandidate(line);
+
 function isCandidate(line: string): boolean {
   const trimmed = clean(line);
   if (trimmed.length < MIN_LEN || trimmed.length > MAX_LEN) return false;

@@ -168,3 +168,59 @@ describe('experienceText', () => {
     expect(experienceText(groupAssignedLines(lines, assignLines(lines.join('\n'))))).toBe('');
   });
 });
+
+/**
+ * O bloco de identidade do export do LinkedIn — nome, headline e localidade —
+ * não tem título de seção e mora na coluna lateral do PDF. A leitura por
+ * coluna o entrega no meio de outra seção, e ele era absorvido por ela.
+ */
+describe('bloco de identidade do LinkedIn', () => {
+  const doc = [
+    'Certifications',
+    'Comunicação efetiva',
+    'Comunicar com impacto e influência',
+    'Fulana de Tal Sobrenome',
+    'Gerente de Relacionamento | Soluções Financeiras | C-PRO R',
+    '| CPA | Média e Alta Renda | Comercial | Gestão de Carteira |',
+    'Investimentos',
+    'Belo Horizonte, Minas Gerais, Brasil',
+    'Experiência',
+    'Empresa Alfa',
+    '01/2020 - atual',
+  ].join('\n');
+
+  it('não contamina a seção que estava aberta', () => {
+    const certificacoes = sectionText(splitSections(doc), 'certificacoes');
+    expect(certificacoes).toContain('Comunicar com impacto e influência');
+    expect(certificacoes).not.toContain('Fulana de Tal Sobrenome');
+    expect(certificacoes).not.toContain('|');
+  });
+
+  it('vai para contato, que é a seção que não sai do app', () => {
+    const kinds = assignLines(doc);
+    const lines = doc.split('\n');
+    const identidade = lines.filter((_, i) => kinds[i] === 'contato');
+    expect(identidade).toEqual([
+      'Fulana de Tal Sobrenome',
+      'Gerente de Relacionamento | Soluções Financeiras | C-PRO R',
+      '| CPA | Média e Alta Renda | Comercial | Gestão de Carteira |',
+      'Investimentos',
+      'Belo Horizonte, Minas Gerais, Brasil',
+    ]);
+  });
+
+  it('não abre nem fecha seção: o que vem depois continua onde estava', () => {
+    expect(sectionText(splitSections(doc), 'experiencia')).toContain('Empresa Alfa');
+  });
+
+  it('lista com barras sem nome acima não é bloco de identidade', () => {
+    // Currículo real: "Áreas de Interesse:" seguido de termos com barra tem a
+    // mesma forma de uma headline, e era descartado como dado pessoal.
+    const cv = [
+      'COMPETÊNCIAS',
+      'Áreas de Interesse:',
+      'GESTÃO | SUPRIMENTOS | PROCESSOS | INFRAESTRUTURA',
+    ].join('\n');
+    expect(sectionText(splitSections(cv), 'competencias')).toContain('GESTÃO | SUPRIMENTOS');
+  });
+});

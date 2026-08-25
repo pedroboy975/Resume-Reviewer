@@ -10,6 +10,8 @@
  * índices no texto original: a UI do Sprint 3 deixa o usuário reatribuir.
  */
 
+import { parsePeriods } from './dates';
+
 export type SectionKind =
   | 'header'
   | 'contato'
@@ -76,6 +78,83 @@ export function detectHeading(line: string): SectionKind | null {
 }
 
 /**
+ * Headline do LinkedIn: termos separados por barra vertical.
+ *
+ * Duas barras, não uma: uma barra sozinha aparece em endereço, em tabela e em
+ * "Analista | Pleno". Duas é lista de especialidades, que é o que a headline é.
+ */
+const HEADLINE_MARK = '|';
+const isHeadline = (line: string) => line.split(HEADLINE_MARK).length > 2;
+/** Linhas de metadado que podem vir depois da headline: localidade e afins. */
+const IDENTITY_TAIL = 2;
+
+/**
+ * A linha tem cara de nome de pessoa.
+ *
+ * É a condição que separa a headline de um perfil de uma lista de termos com
+ * a mesma forma. Um currículo trazia `"Áreas de Interesse:"` seguido de
+ * `"GESTÃO | SUPRIMENTOS | PROCESSOS | INFRAESTRUTURA"` — estrutura idêntica à
+ * de uma headline, e sem esta checagem as duas linhas eram descartadas como
+ * dado pessoal. Nome não termina em dois-pontos, não tem dígito e é curto.
+ */
+function looksLikeName(line: string): boolean {
+  const trimmed = line.trim();
+  if (trimmed.length < 2 || trimmed.length > 60) return false;
+  if (/[:;.\d|]/.test(trimmed)) return false;
+  return trimmed.split(/\s+/).length <= 6 && detectHeading(trimmed) === null;
+}
+
+/**
+ * O bloco de identidade do export do LinkedIn: nome, headline e localidade.
+ *
+ * No PDF ele mora na coluna lateral, e a leitura por coluna o entrega depois
+ * do último item daquela coluna — que costuma ser a lista de certificados.
+ * Sem heading próprio, ele é absorvido pela última seção aberta, qualquer que
+ * ela seja. Já causou dois danos medidos: o diagnóstico afirmou que a seção
+ * de Certificações "contém apenas cursos livres" sem perceber que ela estava
+ * contaminada, e criticou a headline como se fosse texto de Resumo — barra
+ * vertical é a convenção correta de headline, e virou "poluição visual".
+ *
+ * As linhas viram `contato`, que é a seção que não sai do app de jeito nenhum.
+ * O nome completo estava indo para dentro do bloco `## Documento` do dossiê,
+ * que promete texto "já com os dados pessoais removidos". Ver CLAUDE.md > PII.
+ *
+ * A âncora é a headline, não a localidade: a headline tem forma reconhecível
+ * em qualquer perfil, e a localidade varia demais — "Belo Horizonte, Minas
+ * Gerais, Brasil" num export, "Belo Horizonte e Região" no outro. Da headline
+ * sobe-se uma linha (o nome) e desce-se o rabo de metadado.
+ */
+function identityLines(lines: string[]): Set<number> {
+  const marked = new Set<number>();
+  const stops = (line: string) =>
+    line === '' || detectHeading(line) !== null || parsePeriods(line).length > 0;
+
+  lines.forEach((line, i) => {
+    if (!isHeadline(line)) return;
+
+    let top = i;
+    let bottom = i;
+
+    // A headline pode quebrar em várias linhas; a de cima dela é o nome. Sem
+    // nome acima não é bloco de identidade — é uma lista com barras.
+    while (top > 0 && isHeadline(lines[top - 1])) top--;
+    if (top === 0 || !looksLikeName(lines[top - 1])) return;
+    top--;
+
+    while (bottom + 1 < lines.length && isHeadline(lines[bottom + 1])) bottom++;
+    for (let k = 0; k < IDENTITY_TAIL; k++) {
+      const next = lines[bottom + 1];
+      if (next === undefined || stops(next.trim()) || next.trim().length > 60) break;
+      bottom++;
+    }
+
+    for (let j = top; j <= bottom; j++) marked.add(j);
+  });
+
+  return marked;
+}
+
+/**
  * O documento inteiro, em seções, na ordem em que aparecem.
  *
  * O que vem antes do primeiro título é o cabeçalho — nome, título e contato
@@ -83,6 +162,7 @@ export function detectHeading(line: string): SectionKind | null {
  */
 export function splitSections(text: string): Section[] {
   const lines = text.split('\n');
+  const identity = identityLines(lines);
 
   // Posição inicial de cada linha no texto original.
   const offsets: number[] = [];
@@ -102,7 +182,11 @@ export function splitSections(text: string): Section[] {
   const push = (kind: SectionKind, headingLine: number | null, from: number, to: number) => {
     const start = headingLine === null ? 0 : offsets[headingLine];
     const end = to < lines.length ? offsets[to] : text.length;
-    const body = lines.slice(from, to).join('\n').trim();
+    const body = lines
+      .slice(from, to)
+      .filter((_, i) => !identity.has(from + i))
+      .join('\n')
+      .trim();
     if (headingLine === null && body === '') return;
     sections.push({
       kind,
@@ -148,12 +232,14 @@ export function sectionText(sections: Section[], kind: SectionKind): string {
 export function assignLines(text: string): SectionKind[] {
   const lines = text.split('\n');
   const assignment: SectionKind[] = new Array(lines.length).fill('header');
+  const identity = identityLines(lines);
 
   let current: SectionKind = 'header';
   lines.forEach((line, i) => {
     const kind = detectHeading(line);
     if (kind) current = kind;
-    assignment[i] = current;
+    // O bloco de identidade não abre nem fecha seção: só sai de onde caiu.
+    assignment[i] = identity.has(i) ? 'contato' : current;
   });
 
   return assignment;

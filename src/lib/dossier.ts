@@ -9,7 +9,7 @@
  */
 
 import type { Analysis } from './analysis';
-import { durationMonths, type YearMonth } from './dates';
+import { durationMonths, monthsBetween, type YearMonth } from './dates';
 import type { MissingMetricLine } from './metrics';
 import { checkField, countChars, LINKEDIN } from './limits';
 import { redact, summarizePii, type PiiFinding, type PiiKind } from './pii';
@@ -94,6 +94,10 @@ const PII_TITLE: Record<PiiKind, string> = {
 
 const formatYearMonth = (ym: YearMonth) => `${String(ym.month).padStart(2, '0')}/${ym.year}`;
 
+/** Intervalo de um período, do jeito que o resto do bloco já escreve. */
+const range = (p: { start: YearMonth; end: YearMonth | null }) =>
+  `${formatYearMonth(p.start)} – ${p.end ? formatYearMonth(p.end) : 'atual'}`;
+
 const plural = (n: number, singular: string, plural: string) =>
   `${n} ${n === 1 ? singular : plural}`;
 
@@ -173,19 +177,91 @@ function contextBlock(context: CareerContext): string {
     );
   }
 
-  // O formulário do app cobre 5 das 6 prioridades da Fase 3. As duas que
-  // faltam continuam sendo pergunta — e a dos números é a que sustenta a
-  // regra de zero fabricação: sem número confirmado, o texto fica com
-  // [FALTA NÚMERO].
-  lines.push(
-    '',
-    '> **Ainda não perguntado.** O aplicativo não coletou os números reais dos',
-    '> 3 principais resultados nem as ambiguidades de histórico (cargo paralelo,',
-    '> lacuna, mudança de área). Pergunte os dois na Fase 3, e trate como número',
-    '> confirmado apenas o que vier da resposta.',
-  );
-
   return lines.join('\n');
+}
+
+/**
+ * Em que ponto o caso está, calculado — não instruído.
+ *
+ * O dossiê não dizia onde começar, e o modelo parava depois das perguntas da
+ * Fase 3 em todas as rodadas de teste, inclusive quando o formulário estava
+ * inteiro preenchido. A instrução estática que mandava perguntar o que faltava
+ * também não bastou: numa das rodadas ele perguntou um dos dois itens e
+ * ignorou o outro, tendo duas sobreposições reais no documento.
+ *
+ * Então isto aqui não pede: mede. Cada requisito é uma conta sobre o que o app
+ * já tem, e o que falta sai nomeado — pergunta que o modelo não precisa
+ * descobrir que devia fazer.
+ */
+function phaseGate(input: DossierInput): { phase: 3 | 4; missing: string[] } {
+  const { context, analysis, jobs, metrics } = input;
+  const missing: string[] = [];
+
+  if (context.targetRole.trim() === '') {
+    missing.push('O cargo-alvo, que a pessoa ainda não declarou.');
+  }
+
+  if (jobs.every((j) => j.trim() === '')) {
+    missing.push('O texto de 2 a 5 vagas-alvo, que ninguém colou.');
+  }
+
+  // Os dois vínculos mais recentes são os que sustentam o enquadramento de
+  // nível. Número que falta num estágio de dez anos atrás não trava nada.
+  const recent = new Set(
+    analysis.stints
+      .slice(-2)
+      .map((s) => s.label),
+  );
+  const semNumero = metrics.filter(
+    (m) => m.answer.trim() === '' && m.finding.label !== null && recent.has(m.finding.label),
+  );
+  if (semNumero.length > 0) {
+    missing.push(
+      `Os números de ${plural(semNumero.length, 'trecho', 'trechos')} dos dois vínculos mais` +
+        ' recentes, listados abaixo em "Ainda sem número".',
+    );
+  }
+
+  if (analysis.overlaps.length > 0) {
+    missing.push(
+      `O que eram os ${plural(analysis.overlaps.length, 'período sobreposto', 'períodos sobrepostos')}` +
+        ' — cargo paralelo, consultoria, sociedade ou promoção registrada como vínculo novo.',
+    );
+  }
+
+  return { phase: missing.length === 0 ? 4 : 3, missing };
+}
+
+/**
+ * O cabeçalho de estado, antes de qualquer conteúdo.
+ *
+ * `FASE INICIAL` não manda pular o diagnóstico: as Fases 1 e 2 valem sempre.
+ * Diz se a Fase 3 ainda tem o que perguntar — e, quando não tem, tira do
+ * modelo a saída de parar ali.
+ */
+function stateBlock(input: DossierInput): string {
+  const { phase, missing } = phaseGate(input);
+
+  if (phase === 4) {
+    return [
+      'FASE INICIAL: 4',
+      '',
+      'As Fases 1 a 3 têm todo o insumo de que precisam: cargo-alvo, vagas,',
+      'números dos vínculos recentes e ambiguidades de histórico já vieram',
+      'preenchidos. Faça o diagnóstico das Fases 1 e 2, não repita as perguntas',
+      'da Fase 3, e siga direto até a Fase 4. Não pare para pedir confirmação.',
+    ].join('\n');
+  }
+
+  return [
+    'FASE INICIAL: 3',
+    '',
+    'Faça o diagnóstico das Fases 1 e 2 e pare na Fase 3. Falta o seguinte, e',
+    'é exatamente isto que você deve perguntar — nada além, e nada que já esteja',
+    'respondido acima:',
+    '',
+    ...missing.map((m) => `- ${m}`),
+  ].join('\n');
 }
 
 /**
@@ -221,6 +297,57 @@ function documentBlock(sections: AssignedSection[]): string {
 }
 
 /**
+ * O que a pessoa respondeu, separado do que o documento diz.
+ *
+ * Bloco próprio, e de topo, por duas falhas medidas em rodadas diferentes.
+ * Numa, as respostas estavam misturadas ao documento e o modelo criticou a
+ * redação delas como se fossem texto do currículo. Noutra, estavam enterradas
+ * como sub-item dentro dos achados determinísticos — e sumiram: eram a única
+ * evidência quantificada de escopo e a única de liderança do dossiê, e o
+ * enquadramento de nível saiu sem elas.
+ *
+ * Os trechos ainda sem número ficam aqui também, junto do que os responde: é
+ * o mesmo material, e separá-los faria a pessoa procurar em dois lugares.
+ */
+function answersBlock(metrics: DossierInput['metrics']): string {
+  if (metrics.length === 0) return '';
+
+  const answered = metrics.filter((m) => m.answer.trim() !== '');
+  const unanswered = metrics.filter((m) => m.answer.trim() === '');
+
+  const lines = [
+    '## Respostas da pessoa',
+    '',
+    'Não fazem parte do documento. São respostas dela às perguntas da Fase 3 que',
+    'o aplicativo já fez, uma por trecho sem número. Não critique a redação: não',
+    'é texto de currículo, é insumo confirmado para a Fase 4. Quando trouxerem',
+    'escopo, volume ou liderança, cite-as no enquadramento de nível — em vários',
+    'casos são a única evidência quantificada que existe.',
+    '',
+  ];
+
+  lines.push(
+    ...(answered.length > 0
+      ? answered.map((m) => `- ${where(m.finding)}"${quote(m.finding.quote)}" → ${m.answer.trim()}`)
+      : ['- Nenhuma resposta ainda.']),
+  );
+
+  if (unanswered.length > 0) {
+    lines.push(
+      '',
+      `### Ainda sem número (${unanswered.length})`,
+      '',
+      'Mantenha `[FALTA NÚMERO: o que medir]` nesses trechos. Não estime, não use',
+      'placeholder inventado, não troque por adjetivo.',
+      '',
+      ...unanswered.map((m) => `- ${where(m.finding)}"${quote(m.finding.quote)}"`),
+    );
+  }
+
+  return lines.join('\n');
+}
+
+/**
  * Achados que saíram de aritmética e de regex, não de leitura.
  *
  * Vêm marcados como calculados de propósito: são a parte da análise em que o
@@ -228,72 +355,73 @@ function documentBlock(sections: AssignedSection[]): string {
  */
 function findingsBlock(input: DossierInput): string {
   const now = input.now ?? new Date();
-  const { periods, gaps, shortTenures, buzzwords } = input.analysis;
+  const { periods, overlaps, buzzwords } = input.analysis;
   const lines = [
     '## Achados determinísticos',
     '',
-    'Calculados pelo aplicativo a partir do texto — datas, contagens e padrões.',
-    'Não recalcule nem contradiga: use como dado de entrada.',
+    'Datas e contagens medidas pelo aplicativo sobre o texto. Não recalcule.',
+    '',
+    'São dados, não conclusões: o intervalo entre dois vínculos sai em meses, e',
+    'se aquilo é lacuna de carreira, transição, estudo ou omissão, quem diz é',
+    'você — com o que estiver no documento. O aplicativo não classifica nada aqui.',
     '',
   ];
 
   if (periods.length > 0) {
     lines.push(
-      `- **Períodos reconhecidos na experiência:** ${periods.length}`,
-      ...periods.map(
-        (p) =>
-          `  - ${formatYearMonth(p.start)} – ${p.end ? formatYearMonth(p.end) : 'atual'} (${formatDuration(durationMonths(p, now))})` +
-          (p.precision === 'year' ? ' — o documento só declarou o ano' : ''),
-      ),
+      `- **Períodos reconhecidos na experiência (${periods.length}), do mais antigo ao mais recente:**`,
+      // O vão entre um período e o próximo sai na sequência, sem limiar e sem
+      // a palavra "lacuna". Antes disto o bloco emitia "nenhuma acima de 4
+      // meses" — veredito calculado, ignorado em todas as rodadas de teste,
+      // enquanto o bloco de evidência crua ao lado era usado.
+      ...periods.flatMap((p, i) => {
+        const line =
+          `  - ${range(p)} (${formatDuration(durationMonths(p, now))})` +
+          (p.precision === 'year' ? ' — o documento só declarou o ano' : '');
+        const next = periods[i + 1];
+        if (!next || !p.end) return [line];
+        const between = monthsBetween(p.end, next.start);
+        return between > 0
+          ? [line, `    ↳ ${plural(between, 'mês', 'meses')} até o começo do próximo`]
+          : [line];
+      }),
     );
   } else {
-    lines.push('- **Períodos reconhecidos na experiência:** nenhum');
+    lines.push(
+      '- **Períodos reconhecidos na experiência:** nenhum. O detector de datas não',
+      '  achou intervalo no texto atribuído a Experiência — pode ser formato que ele',
+      '  não cobre, ou seção fatiada errado. Não conclua que a pessoa não trabalhou.',
+    );
   }
 
-  lines.push(
-    gaps.length > 0
-      ? `- **Lacunas entre empregos:** ${gaps
-          .map((g) => `${formatYearMonth(g.from)} a ${formatYearMonth(g.to)} (${formatDuration(g.months)})`)
-          .join('; ')}`
-      : '- **Lacunas entre empregos:** nenhuma acima de 4 meses',
-  );
+  // Cargo paralelo é o item 5 da Fase 3, que o app não coletava e o modelo
+  // esquecia de perguntar em metade das rodadas. Sai como par de datas, sem
+  // nome e sem interpretação: quem sabe o que aconteceu ali é a pessoa.
+  if (overlaps.length > 0) {
+    lines.push(
+      `- **Períodos que correm ao mesmo tempo (${overlaps.length}):**`,
+      ...overlaps.map(
+        (o) =>
+          `  - ${range(o.a)} e ${range(o.b)} dividem ${formatDuration(o.months)}`,
+      ),
+      '  - Pergunte o que eram — cargo paralelo, consultoria, sociedade, promoção' +
+        ' registrada como vínculo novo — antes de tratar como trajetória sequencial.',
+    );
+  }
 
-  lines.push(
-    shortTenures.length > 0
-      ? `- **Permanências abaixo de 12 meses:** ${shortTenures
-          .map((p) => `${formatYearMonth(p.start)} – ${p.end ? formatYearMonth(p.end) : 'atual'}`)
-          .join('; ')}`
-      : '- **Permanências abaixo de 12 meses:** nenhuma',
-  );
-
+  // Permanência curta saía como campo próprio, com limiar de 12 meses. É a
+  // mesma duração que já está na lista acima, com um veredito colado — e o
+  // limiar não vale igual para estágio, obra e temporada. Sai a conta, fica
+  // o dado.
   lines.push(
     buzzwords.length > 0
-      ? `- **Termos genéricos sem evidência por perto:** ${buzzwords
+      ? `- **Termos genéricos encontrados:** ${buzzwords
           .map((b) => `"${b.quote}"`)
           .join(', ')}. Não reescreva por conta própria — aponte o trecho e peça reescrita no` +
         ' formato Ação + Método + Problema + Resultado, só com número que a pessoa confirmar.'
-      : '- **Termos genéricos sem evidência por perto:** nenhum',
+      : '- **Termos genéricos:** o detector não reconheceu nenhum termo da lista dele.' +
+        ' A lista é curta e literal: ausência aqui é limite dela, não do documento.',
   );
-
-  if (input.metrics.length > 0) {
-    const answered = input.metrics.filter((m) => m.answer.trim() !== '');
-    const unanswered = input.metrics.filter((m) => m.answer.trim() === '');
-
-    lines.push('- **Resultados sem número, com resposta confirmada pela pessoa (Fase 3 assistida):**');
-    lines.push(
-      ...(answered.length > 0
-        ? answered.map((m) => `  - ${where(m.finding)}"${quote(m.finding.quote)}" → ${m.answer.trim()}`)
-        : ['  - nenhuma resposta ainda']),
-    );
-
-    if (unanswered.length > 0) {
-      lines.push(
-        `- **Ainda sem número (${unanswered.length}):** ${unanswered
-          .map((m) => `${where(m.finding)}"${quote(m.finding.quote)}"`)
-          .join('; ')}. Mantenha [FALTA NÚMERO] nesses trechos — não estime.`,
-      );
-    }
-  }
 
   const pii = Object.entries(summarizePii(input.pii)) as [PiiKind, number][];
   lines.push(
@@ -421,9 +549,13 @@ export function buildDossier(input: DossierInput): string {
     'CASO A ANALISAR',
     '═══════════════════════════════════════════',
     '',
+    stateBlock(input),
+    '',
     contextBlock(input.context),
     '',
     documentBlock(input.analysis.sections),
+    '',
+    answersBlock(input.metrics),
     '',
     findingsBlock(input),
     '',

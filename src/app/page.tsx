@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { readPdfText } from '@/lib/pdf-client';
+import { cleanText } from '@/lib/clean';
 import { redact, type PiiFinding } from '@/lib/pii';
 import { assignLines, type SectionKind } from '@/lib/sections';
 import { analyze } from '@/lib/analysis';
@@ -45,9 +46,16 @@ export default function Home() {
     [],
   );
 
-  /** Redação acontece na entrada. O que fica no estado já está sem PII. */
+  /**
+   * Redação acontece na entrada. O que fica no estado já está sem PII.
+   *
+   * `cleanText` vem antes: texto colado de um PDF traz o mesmo rodapé e as
+   * mesmas sentenças coladas que o caminho do arquivo, e lá a limpeza roda
+   * dentro de `documentToText`. É idempotente — passar duas vezes não muda
+   * nada.
+   */
   function load(raw: string) {
-    const redacted = redact(raw);
+    const redacted = redact(cleanText(raw));
     setText(redacted.text);
     setFindings(redacted.findings);
     setAssignment(assignLines(redacted.text));

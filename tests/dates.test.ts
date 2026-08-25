@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import {
+  chronological,
   durationMonths,
   findGaps,
+  findOverlaps,
   monthsBetween,
   parsePeriods,
   shortTenures,
@@ -24,6 +26,8 @@ describe('parsePeriods', () => {
     ['Agosto/2013 á Março/2014', [2013, 8], [2014, 3]],
     ['Abril /2014 á Julho/2017', [2014, 4], [2017, 7]],
     ['jan. 2019 até dez. 2020', [2019, 1], [2020, 12]],
+    // Currículo em caixa alta perde o acento: sem isto, o período some.
+    ['01/07/2017 ATE 01/03/2019', [2017, 7], [2019, 3]],
     ['September 2016 to May 2017', [2016, 9], [2017, 5]],
   ])('lê %s', (text, start, end) => {
     const period = only(text);
@@ -75,12 +79,26 @@ describe('parsePeriods', () => {
 });
 
 describe('durationMonths', () => {
-  it('conta meses fechados', () => {
-    expect(durationMonths(only('01/2016 - 01/2018'), NOW)).toBe(24);
+  it('conta meses fechados, incluindo o primeiro e o último', () => {
+    expect(durationMonths(only('01/2016 - 01/2018'), NOW)).toBe(25);
   });
 
   it('mede período em andamento até agora', () => {
-    expect(durationMonths(only('06/2026 - atual'), NOW)).toBe(2);
+    expect(durationMonths(only('06/2026 - atual'), NOW)).toBe(3);
+  });
+
+  /**
+   * O contrato de M1: quando o próprio documento escreve a duração ao lado do
+   * período — que é o que o export do LinkedIn faz —, o app tem que dizer o
+   * mesmo número. Divergir é contradizer a fonte que está lendo.
+   */
+  it.each([
+    ['02/2024 - 05/2024', 4],
+    ['janeiro de 2019 - janeiro de 2021', 25],
+    ['03/2021 - 10/2023', 32],
+    ['05/2018 - 11/2018', 7],
+  ])('concorda com a duração que o documento declara: %s', (text, months) => {
+    expect(durationMonths(only(text), NOW)).toBe(months);
   });
 });
 
@@ -148,5 +166,38 @@ describe.each(fixtureNames)('%s', (file) => {
       expect(gap.months).toBeGreaterThanOrEqual(4);
       expect(monthsBetween(gap.from, gap.to)).toBe(gap.months);
     }
+  });
+});
+
+describe('findOverlaps', () => {
+  it('acha o cargo paralelo dentro de outro vínculo', () => {
+    const periods = parsePeriods('A: 01/2019 - 01/2021\nB: 06/2020 - 09/2020');
+    const [overlap] = findOverlaps(periods, { now: NOW });
+    expect(overlap.a.quote).toContain('01/2019');
+    expect(overlap.b.quote).toContain('06/2020');
+    expect(overlap.months).toBe(4);
+  });
+
+  it('não chama troca de emprego de sobreposição', () => {
+    const periods = parsePeriods('A: 01/2015 - 06/2016\nB: 06/2016 - 01/2020');
+    expect(findOverlaps(periods, { now: NOW })).toEqual([]);
+  });
+
+  it('mede sobreposição contra vínculo em andamento', () => {
+    const periods = parsePeriods('A: 01/2026 - atual\nB: 03/2026 - 06/2026');
+    expect(findOverlaps(periods, { now: NOW })[0].months).toBe(4);
+  });
+
+  it('não inventa sobreposição em carreira sequencial', () => {
+    const periods = parsePeriods('A: 01/2015 - 06/2016\nB: 03/2018 - 01/2020');
+    expect(findOverlaps(periods, { now: NOW })).toEqual([]);
+  });
+});
+
+describe('chronological', () => {
+  it('põe o mais antigo primeiro, contra a ordem do documento', () => {
+    // Export do LinkedIn: emprego atual no topo, estágio paralelo no fim.
+    const periods = parsePeriods('Atual: 03/2021 - atual\nAntes: 01/2018 - 01/2019');
+    expect(chronological(periods).map((p) => p.start.year)).toEqual([2018, 2021]);
   });
 });
