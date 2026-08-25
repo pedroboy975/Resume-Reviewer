@@ -30,6 +30,17 @@ const hasPeriod = (line: string) => parsePeriods(line).length > 0;
 export type JobStint = {
   label: string;
   period: Period;
+  /**
+   * A parte do rótulo que a estrutura do documento identificou como
+   * empregador — cabeçalho acima do cargo, ou o cabeçalho de empresa que
+   * cobre vários cargos seguidos no export do LinkedIn.
+   *
+   * `null` quando a estrutura não separa os dois ("Restaurante Hokkaido –
+   * Cargo: Gerente" numa linha só). Nunca é adivinhado: cruzar cargo com o
+   * texto de uma vaga acha coincidência em qualquer vaga, já que a vaga
+   * descreve exatamente aquele cargo.
+   */
+  company: string | null;
 };
 
 const MIN_LEN = 2;
@@ -179,13 +190,16 @@ export function extractCompanies(text: string, periods: Period[]): JobStint[] {
     const sameLine = sameLineLabel(lines[lineIndex], period);
 
     let parts: string[];
+    let company: string | null = null;
     if (companyLike) {
       parts = [companyLike, roleLike, sameLine].filter((s): s is string => Boolean(s));
       stickyCompany = companyLike;
+      company = companyLike;
     } else if (sameLine) {
       parts = [roleLike, sameLine].filter((s): s is string => Boolean(s));
     } else if (roleLike) {
       parts = stickyCompany ? [stickyCompany, roleLike] : [roleLike];
+      company = stickyCompany;
     } else {
       // Nada acima nem na própria linha: currículo com data seguida do
       // cargo na linha de baixo, em vez de precedida por ele.
@@ -193,7 +207,7 @@ export function extractCompanies(text: string, periods: Period[]): JobStint[] {
       parts = below !== undefined && isCandidate(below) ? [clean(below)] : [];
     }
 
-    if (parts.length > 0) out.push({ label: parts.join(' — '), period });
+    if (parts.length > 0) out.push({ label: parts.join(' — '), period, company });
     prevLineIndex = lineIndex;
   }
   return out;

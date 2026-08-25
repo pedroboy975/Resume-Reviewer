@@ -12,8 +12,10 @@ import type { Analysis } from './analysis';
 import { durationMonths, monthsBetween, type YearMonth } from './dates';
 import type { MissingMetricLine } from './metrics';
 import { checkField, countChars, LINKEDIN } from './limits';
+import { stripAccents } from './companies';
 import { redact, summarizePii, type PiiFinding, type PiiKind } from './pii';
 import { CAREER_PROMPT } from './prompt';
+import { sectionNames } from './repetition';
 import { AXES, AXIS_EMPTY, AXIS_LABEL, type ScopePanel } from './scope';
 import {
   detectHeading,
@@ -355,7 +357,7 @@ function answersBlock(metrics: DossierInput['metrics']): string {
  */
 function findingsBlock(input: DossierInput): string {
   const now = input.now ?? new Date();
-  const { periods, overlaps, buzzwords, silentStints } = input.analysis;
+  const { periods, overlaps, buzzwords, silentStints, repeated } = input.analysis;
   const lines = [
     '## Achados determinísticos',
     '',
@@ -406,6 +408,17 @@ function findingsBlock(input: DossierInput): string {
       ),
       '  - Pergunte o que eram — cargo paralelo, consultoria, sociedade, promoção' +
         ' registrada como vínculo novo — antes de tratar como trajetória sequencial.',
+    );
+  }
+
+  // A Fase 4 proíbe repetir a mesma âncora de escala; a Fase 2 não tem o
+  // espelho dessa regra. Sem isto, a mesma conquista contada duas vezes chega
+  // como duas conquistas — e numa das rodadas ela foi elogiada como ponto
+  // forte, com a frase inteira idêntica no Resumo e na Experiência.
+  if (repeated.length > 0) {
+    lines.push(
+      `- **Frases idênticas em mais de uma seção (${repeated.length}):**`,
+      ...repeated.map((r) => `  - Em ${sectionNames(r.sections)}: "${quote(r.quote)}"`),
     );
   }
 
@@ -521,8 +534,90 @@ function scopeBlock(scope: ScopePanel): string {
   return lines.join('\n');
 }
 
-function jobsBlock(jobs: string[]): string {
+/**
+ * Termos úteis de um texto curto, sem acento e sem palavra de ligação.
+ *
+ * Serve para medir sobreposição entre o cargo-alvo e o texto de uma vaga. É
+ * comparação de palavra, não de significado: "Assessor de Investimentos" e
+ * "Especialista em Renda Fixa" não se cruzam aqui, e é por isso que a saída é
+ * "não contém nenhum termo", nunca "não tem a ver".
+ */
+const STOPWORDS = new Set(['de', 'da', 'do', 'e', 'ou', 'em', 'para', 'a', 'o', 'com', 'sr', 'jr']);
+
+const terms = (s: string): string[] =>
+  stripAccents(s)
+    .toLowerCase()
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter((w) => w.length > 2 && !STOPWORDS.has(w));
+
+const mentions = (haystack: string, needle: string) =>
+  stripAccents(haystack).toLowerCase().includes(stripAccents(needle).toLowerCase());
+
+/**
+ * O que o app sabe cruzar entre uma vaga e o resto do caso.
+ *
+ * Os dois cruzamentos nasceram do mesmo caso real. A pessoa declarou o
+ * cargo-alvo e colou duas vagas de mercados incompatíveis; o modelo tratou as
+ * duas como bifurcação simétrica, ignorou a direção declarada e gastou a
+ * pergunta de maior prioridade pedindo que ela escolhesse de novo — o que o
+ * prompt proíbe. E uma dessas vagas era de um ex-empregador dela, com três
+ * anos de histórico interno, o fato que mais muda a recomendação: ninguém
+ * cruzou o nome da empresa com o texto colado.
+ *
+ * Nenhum dos dois é veredito. O primeiro diz que não há palavra em comum, o
+ * segundo diz que o nome aparece — o que isso significa é da pessoa e do
+ * modelo.
+ */
+function jobNotes(job: string, input: DossierInput, n: number, odd: boolean): string[] {
+  const out: string[] = [];
+  const target = input.context.targetRole.trim();
+
+  if (odd) {
+    out.push(
+      `> **Vaga ${n} diverge do cargo-alvo declarado.** O cargo-alvo é "${target}". A Vaga ${n}`,
+      '> não contém nenhum dos termos do alvo. Trate como possível engano de colagem:',
+      '> confirme numa linha se ela deve entrar na análise — não reabra a escolha de',
+      '> direção, que já foi respondida.',
+    );
+  }
+
+  // Um empregador com dois cargos vira dois vínculos e sairia duas vezes.
+  const periods = new Map<string, string[]>();
+  for (const s of input.analysis.stints) {
+    if (s.company === null || s.company.length <= 3 || !mentions(job, s.company)) continue;
+    periods.set(s.company, [...(periods.get(s.company) ?? []), range(s.period)]);
+  }
+
+  for (const [company, when] of periods) {
+    out.push(
+      `> **Vaga ${n} menciona empregador do histórico:** ${quote(company)}` +
+        ` (${when.join(', ')}). Retorno a ex-empregador muda a recomendação — a pessoa` +
+        ' já conhece a operação por dentro, e a rede interna dela continua lá.',
+    );
+  }
+
+  return out.length > 0 ? ['', ...out] : [];
+}
+
+/**
+ * Quais vagas destoam do cargo-alvo — e só quando *algumas* destoam.
+ *
+ * O achado é a assimetria. Se nenhuma vaga tem palavra em comum com o alvo, o
+ * mais provável é que a pessoa tenha escrito o alvo com outras palavras, não
+ * que tenha colado tudo errado; chamar cada vaga de engano nesse caso é pior
+ * que ficar calado.
+ */
+function oddJobs(filled: string[], target: string): number[] {
+  if (target.trim() === '' || filled.length < 2) return [];
+  const wanted = terms(target);
+  const off = filled.flatMap((job, i) => (wanted.some((t) => mentions(job, t)) ? [] : [i]));
+  return off.length === filled.length ? [] : off;
+}
+
+function jobsBlock(input: DossierInput): string {
+  const jobs = input.jobs;
   const filled = jobs.map((j) => j.trim()).filter((j) => j !== '');
+  const odd = oddJobs(filled, input.context.targetRole);
   if (filled.length === 0) {
     return [
       '## Vagas-alvo',
@@ -549,7 +644,13 @@ function jobsBlock(jobs: string[]): string {
         ]
       : []),
     '',
-    ...filled.map((job, i) => `### Vaga ${i + 1}\n\n${job}`),
+    ...filled.flatMap((job, i) => [
+      `### Vaga ${i + 1}`,
+      ...jobNotes(job, input, i + 1, odd.includes(i)),
+      '',
+      job,
+      '',
+    ]),
   ].join('\n');
 }
 
@@ -574,7 +675,7 @@ export function buildDossier(input: DossierInput): string {
     '',
     scopeBlock(input.analysis.scope),
     '',
-    jobsBlock(input.jobs),
+    jobsBlock(input),
     '',
   ].join('\n');
 }

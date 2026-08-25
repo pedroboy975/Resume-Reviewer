@@ -381,3 +381,57 @@ describe('buildDossier · tipo de artefato', () => {
     expect(dossier).not.toContain('Veio só um documento');
   });
 });
+
+describe('cruzamentos com a vaga', () => {
+  const ALVO = 'Gerente de Relacionamento';
+  const NA_DIRECAO = 'Vaga: Gerente de Relacionamento Alta Renda em agência digital.';
+  const FORA = 'Vaga: Soldador de tubulação industrial com curso NR-13.';
+
+  it('aponta a vaga que não tem nenhum termo do cargo-alvo', () => {
+    const d = buildDossier(
+      input({ context: { ...EMPTY_CONTEXT, targetRole: ALVO }, jobs: [NA_DIRECAO, FORA] }),
+    );
+    expect(d).toContain('**Vaga 2 diverge do cargo-alvo declarado.**');
+    expect(d).not.toContain('**Vaga 1 diverge');
+    // Não reabrir a escolha de direção é o ponto: a pessoa já respondeu.
+    expect(d).toContain('não reabra a escolha de');
+  });
+
+  it('cala quando nenhuma vaga casa com o alvo', () => {
+    // Alvo escrito com outras palavras é mais provável que três colagens
+    // erradas — e chamar cada vaga de engano seria pior que ficar calado.
+    const d = buildDossier(
+      input({ context: { ...EMPTY_CONTEXT, targetRole: ALVO }, jobs: [FORA, FORA] }),
+    );
+    expect(d).not.toContain('diverge do cargo-alvo');
+  });
+
+  it('avisa quando a vaga é de um ex-empregador, com o período', () => {
+    const cv = [
+      'EXPERIÊNCIA',
+      'Banco Exemplo',
+      'Analista de Relacionamento',
+      'jan/2018 - dez/2020',
+      'Atendi a carteira de clientes da agência durante todo o período.',
+    ].join('\n');
+
+    const d = buildDossier(
+      fromText(cv, { jobs: ['Vaga: Gerente no Banco Exemplo, agência digital.'] }),
+    );
+    expect(d).toContain('**Vaga 1 menciona empregador do histórico:** Banco Exemplo');
+    expect(d).toContain('01/2018 – 12/2020');
+  });
+
+  it('não cruza cargo com vaga: a vaga descreve o cargo por definição', () => {
+    const cv = [
+      'EXPERIÊNCIA',
+      'Banco Exemplo',
+      'Analista de Relacionamento',
+      'jan/2018 - dez/2020',
+      'Atendi a carteira de clientes da agência durante todo o período.',
+    ].join('\n');
+
+    const d = buildDossier(fromText(cv, { jobs: ['Vaga: Analista de Relacionamento sênior.'] }));
+    expect(d).not.toContain('menciona empregador do histórico');
+  });
+});

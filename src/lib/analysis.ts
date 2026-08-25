@@ -29,6 +29,7 @@ import {
   type Period,
 } from './dates';
 import { findMissingMetrics, silentStints, type MissingMetricLine } from './metrics';
+import { findRepeatedLines, type RepeatedLine } from './repetition';
 import { findScopeEvidence, type ScopePanel } from './scope';
 import { experienceText, groupAssignedLines, type AssignedSection, type SectionKind } from './sections';
 
@@ -49,6 +50,8 @@ export type Analysis = {
   silentStints: JobStint[];
   /** Trechos que sustentam cada eixo de escopo. Não é veredito de nível. */
   scope: ScopePanel;
+  /** Frases idênticas em mais de uma seção. */
+  repeated: RepeatedLine[];
 };
 
 /**
@@ -84,5 +87,6 @@ export function analyze(
     stints: chronological(stints),
     silentStints: chronological(silentStints(experiencia, stints)),
     scope: findScopeEvidence(sections),
+    repeated: findRepeatedLines(sections),
   };
 }
