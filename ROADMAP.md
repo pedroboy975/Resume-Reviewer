@@ -155,3 +155,50 @@ matching semântico — que é honesto e funciona em qualquer aparelho.
 
 Corte qualquer sprint que atrase duas semanas seguidas. Com 5h/semana,
 sprint travado não é atraso: é sinal de escopo errado.
+
+---
+
+## Achados medidos e descartados
+
+Um achado só entra se a medição nas fixtures reais mostrar que ele acerta.
+O que foi medido e não entrou fica aqui, com o número, para não voltar como
+sugestão daqui a três meses.
+
+### Concordância de gênero gramatical
+
+Detectar `"Comprometido"` e `"Reconhecida"` no mesmo parágrafo, ou
+`"Estagiário"` num vínculo e `"Estagiária"` em outro. A ideia era achar texto
+colado de fontes diferentes, que é defeito do documento.
+
+Descartado por desenho, antes de medir. Para dizer que duas palavras
+divergem, o código precisa saber qual é masculina e qual é feminina, e então
+precisa eleger uma das duas como a certa — o que atribui um gênero à pessoa e
+chama o resto de erro. Isso inverte a regra 6 do CLAUDE.md: a crítica passa a
+apontar quem escreveu, não o texto. E há motivos legítimos para a divergência
+existir: alguém que mistura de propósito, entrada antiga com a flexão de
+antes, título formal que o RH emitiu num gênero e o outro não.
+
+Agrava que a camada de LLM é onde evidência neutra vira veredito — já
+aconteceu três vezes: `diferencial` virou `obrigatório`, escopo virou nível.
+Uma linha neutra sobre flexão vira "corrija para o feminino" com facilidade,
+e aí o app está opinando sobre identidade.
+
+### Variação de grafia do mesmo termo
+
+A metade salvável do item anterior: a mesma palavra escrita de duas formas
+(`publico` / `público`) é defeito objetivo, não depende de saber o que é
+gênero, e pega acento perdido no export do PDF.
+
+Medido nas seis fixtures: **quatro ocorrências, uma verdadeira.**
+
+| Ocorrência | Veredito |
+|---|---|
+| `publico` / `público` no mesmo currículo | defeito real |
+| `BÁRBARA` / `barbara` | o segundo é o slug da URL do LinkedIn |
+| `AREA` / `área` | caixa alta: omitir acento é convenção tipográfica |
+| `Média` / `Media` | o segundo é inglês, em "Social Media Specialist" |
+
+As duas primeiras têm guarda barata (ignorar URL, ignorar caixa alta). A
+terceira precisaria de uma lista fechada de termos em inglês que colidem com
+palavra acentuada em português — a mesma lista fechada que o item anterior
+pedia, agora por uma ocorrência a cada seis documentos. Não paga.
