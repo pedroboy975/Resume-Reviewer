@@ -72,6 +72,14 @@ export type ScopePanel = {
 };
 
 /**
+ * Objeto que faz o verbo virar execução em vez de decisão: documento, arquivo,
+ * ferramenta, peça de comunicação. Vale como sufixo do verbo, não como termo
+ * solto — o que decide não é a palavra estar na frase, é ela ser o objeto.
+ */
+const OF_TOOL =
+  ' ?(?:d[aeo]s?|[ao]s?) (chat|site|planilha|documento|arquivo|apresenta|relatorio|post|arte|conteudo|texto|formulario|dashboard|plataforma|material|banner|e-?mail)';
+
+/**
  * Radicais, não palavras: `lider` cobre liderei, liderança, líder e
  * lideranças de uma vez. O casamento roda sobre texto sem acento, senão
  * "líder" escapa — mesmo motivo do `stripAccents` em companies.ts.
@@ -110,8 +118,11 @@ const TERMS: {
   { axis: 'decisao', pattern: 'concebi' },
   { axis: 'decisao', pattern: 'estabelec' },
   { axis: 'decisao', pattern: 'prioriz' },
-  { axis: 'decisao', pattern: 'criei' },
-  { axis: 'decisao', pattern: 'criacao d' },
+  // Criar tem objeto que muda tudo. Criar o processo é decisão; criar o chat,
+  // a apresentação ou a planilha é execução — e um dos currículos reais
+  // aparecia com "Realizei a criação do chat pelo site" listado como escopo
+  // de decisão comprovado, num perfil que pleiteia gerência.
+  { axis: 'decisao', pattern: `cri(acao|ar|ei|ou)\\b(?!${OF_TOOL})` },
   { axis: 'decisao', pattern: 'propus' },
   // Escopo de decisão — en
   { axis: 'decisao', pattern: 'establish' },

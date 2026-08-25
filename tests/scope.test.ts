@@ -165,3 +165,20 @@ describe('objeto do termo', () => {
     expect(quotes(panelOf(['EXPERIÊNCIA', linha].join('\n')), 'responsabilidade')).toEqual([linha]);
   });
 });
+
+describe('objeto do verbo de decisão', () => {
+  it.each([
+    'Realizei a criação do chat pelo site, através da plataforma Tawk.to.',
+    'Criação de apresentações projetuais para os clientes da carteira da agência.',
+    'Quando o Design realizava a arte, eu era responsável por criar o texto do post.',
+  ])('não conta %s como decisão', (linha) => {
+    expect(quotes(panelOf(['EXPERIÊNCIA', linha].join('\n')), 'decisao')).toEqual([]);
+  });
+
+  it.each([
+    'Criei o processo de onboarding que a área inteira usa até hoje sem mudanças.',
+    'Responsável pela criação e desenvolvimento das consultorias de vendas da regional.',
+  ])('conta %s como decisão', (linha) => {
+    expect(quotes(panelOf(['EXPERIÊNCIA', linha].join('\n')), 'decisao')).toEqual([linha]);
+  });
+});
