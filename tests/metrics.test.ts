@@ -70,11 +70,11 @@ describe('findMissingMetrics — vínculo do trecho', () => {
     return findMissingMetrics(text, extractCompanies(text, periods));
   };
 
-  it('marca cada trecho com o vínculo em que aparece', () => {
+  it('marca cada trecho com o vínculo em que aparece, do mais recente ao mais antigo', () => {
     const out = found();
     expect(out).toHaveLength(2);
-    expect(out[0].label).toContain('Alfa');
-    expect(out[1].label).toContain('Beta');
+    expect(out[0].label).toContain('Beta');
+    expect(out[1].label).toContain('Alfa');
   });
 
   it('dá chaves distintas a citações idênticas em vínculos diferentes', () => {
@@ -129,5 +129,49 @@ describe('onde termina o cabeçalho do vínculo', () => {
     ].join('\n');
 
     expect(findMissingMetrics(text)[0].quote).toContain('Atuação focada na gestão consultiva');
+  });
+});
+
+describe('ordem das perguntas', () => {
+  const text = [
+    'Empresa Antiga',
+    'Estagiário',
+    'jan/2012 - dez/2013',
+    'Apoiei a rotina administrativa do setor e organizei os arquivos da área.',
+    '',
+    'Empresa Atual',
+    'Gerente',
+    'jan/2020 - atual',
+    'Reformulei o processo de atendimento consultivo da unidade inteira.',
+    'Conduzi a negociação anual com os fornecedores estratégicos da operação.',
+    '',
+    'Empresa do Meio',
+    'Analista',
+    'jan/2015 - dez/2018',
+    'Acompanhei a execução dos contratos e o relacionamento com fornecedores.',
+  ].join('\n');
+
+  it('o vínculo mais recente vem primeiro, mesmo fora da ordem do documento', () => {
+    const out = findMissingMetrics(text, extractCompanies(text, parsePeriods(text)));
+    expect(out.map((m) => m.label)).toEqual([
+      'Empresa Atual — Gerente',
+      'Empresa Atual — Gerente',
+      'Empresa do Meio — Analista',
+      'Empresa Antiga — Estagiário',
+    ]);
+  });
+
+  it('trecho sem vínculo reconhecido vai para o fim', () => {
+    const solto = [
+      'Coordenei a rotina de compras sem nenhuma data declarada no documento.',
+      '',
+      'Empresa Atual',
+      'Gerente',
+      'jan/2020 - atual',
+      'Reformulei o processo de atendimento consultivo da unidade inteira.',
+    ].join('\n');
+
+    const out = findMissingMetrics(solto, extractCompanies(solto, parsePeriods(solto)));
+    expect(out[out.length - 1].label).toBeNull();
   });
 });
