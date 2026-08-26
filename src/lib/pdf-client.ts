@@ -22,11 +22,16 @@ async function loadPdfjs() {
   return pdfjs;
 }
 
-/** Páginas com posições, a partir do arquivo escolhido pelo usuário. */
-export async function readPdf(file: File, onProgress?: OnProgress): Promise<Page[]> {
+/** Rejeita arquivo acima do teto antes de qualquer parsing. */
+export function assertFileSize(file: Pick<File, 'size'>): void {
   if (file.size > MAX_FILE_SIZE) {
     throw new Error(`Arquivo maior que ${MAX_FILE_SIZE / (1024 * 1024)}MB — não é um currículo comum.`);
   }
+}
+
+/** Páginas com posições, a partir do arquivo escolhido pelo usuário. */
+export async function readPdf(file: File, onProgress?: OnProgress): Promise<Page[]> {
+  assertFileSize(file);
   const pdfjs = await loadPdfjs();
   const data = new Uint8Array(await file.arrayBuffer());
   const doc = await pdfjs.getDocument({ data }).promise;
