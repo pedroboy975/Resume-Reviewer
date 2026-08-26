@@ -11,6 +11,9 @@
 /** Mês de calendário. `month` é 1–12. */
 export type YearMonth = { year: number; month: number };
 
+export const formatYearMonth = (ym: YearMonth): string =>
+  `${String(ym.month).padStart(2, '0')}/${ym.year}`;
+
 export type Period = {
   start: YearMonth;
   /** `null` = em andamento ("atual", "Present", "em andamento"). */
@@ -243,8 +246,9 @@ export function findOverlaps(
  * primeiro, e cargo paralelo aparece onde couber. Emitir a lista na ordem de
  * aparição entrega ao leitor uma linha do tempo que salta para trás no meio.
  */
-export const chronological = (periods: Period[]): Period[] =>
-  [...periods].sort((a, b) => monthsBetween(b.start, a.start));
+export const byRecentStart = (a: Period, b: Period): number => monthsBetween(b.start, a.start);
+
+export const chronological = (periods: Period[]): Period[] => [...periods].sort(byRecentStart);
 
 /** Períodos mais curtos que `maxMonths`. Em andamento nunca conta: ainda está correndo. */
 export function shortTenures(

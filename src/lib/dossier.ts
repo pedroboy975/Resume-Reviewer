@@ -9,7 +9,7 @@
  */
 
 import type { Analysis } from './analysis';
-import { durationMonths, monthsBetween, totalMonths, type YearMonth } from './dates';
+import { durationMonths, formatYearMonth, monthsBetween, totalMonths, type YearMonth } from './dates';
 import type { MissingMetricLine } from './metrics';
 import { checkField, countChars, LINKEDIN } from './limits';
 import { stripAccents } from './companies';
@@ -104,8 +104,6 @@ const PII_TITLE: Record<PiiKind, string> = {
   'estado-civil': 'estado civil',
   sexo: 'sexo',
 };
-
-const formatYearMonth = (ym: YearMonth) => `${String(ym.month).padStart(2, '0')}/${ym.year}`;
 
 /** Intervalo de um período, do jeito que o resto do bloco já escreve. */
 const range = (p: { start: YearMonth; end: YearMonth | null }) =>

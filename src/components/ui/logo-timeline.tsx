@@ -1,12 +1,8 @@
 'use client';
 
-import { useState, type ReactNode } from 'react';
-
 export interface LogoItem {
   /** Texto exibido ao lado do marcador. */
   label: string;
-  /** Marcador opcional à esquerda do texto. Sem ele, um ponto âmbar é desenhado no tamanho de `iconSize`. */
-  icon?: ReactNode;
   /** Atraso da animação, em segundos (negativo para efeito escalonado). */
   animationDelay: number;
   /** Duração da animação, em segundos. */
@@ -23,16 +19,9 @@ export interface LogoItem {
 
 export interface LogoTimelineProps {
   items: LogoItem[];
-  /** Texto opcional exibido, bem apagado, atrás das linhas. */
-  title?: string;
   /** Altura do contêiner, como valor CSS (`"320px"`, `"20rem"`...). */
   height?: string;
-  className?: string;
-  /** Tamanho do marcador em pixels quando `icon` não é passado (padrão: 8). */
-  iconSize?: number;
   showRowSeparator?: boolean;
-  /** Anima só quando o cursor está sobre o componente (padrão: false). */
-  animateOnHover?: boolean;
 }
 
 /**
@@ -45,17 +34,7 @@ export interface LogoTimelineProps {
  * dependência e não precisa dela para strings de classe fixas). Cores vêm
  * dos tokens do projeto, não de `bg-background`/`text-foreground`.
  */
-export function LogoTimeline({
-  items,
-  title,
-  height = '320px',
-  className = '',
-  iconSize = 8,
-  showRowSeparator = true,
-  animateOnHover = false,
-}: LogoTimelineProps) {
-  const [isHovered, setIsHovered] = useState(false);
-
+export function LogoTimeline({ items, height = '320px', showRowSeparator = true }: LogoTimelineProps) {
   const rowsMap = new Map<number, LogoItem[]>();
   items.forEach((item) => {
     if (!rowsMap.has(item.row)) rowsMap.set(item.row, []);
@@ -65,27 +44,11 @@ export function LogoTimeline({
     .sort(([a], [b]) => a - b)
     .map(([, rowItems]) => rowItems);
 
-  const animationPlayState = animateOnHover ? (isHovered ? 'running' : 'paused') : 'running';
-
   if (rows.length === 0) return null;
 
   return (
-    <section className={`w-full ${className}`}>
-      <div
-        aria-hidden="true"
-        className="relative w-full overflow-hidden bg-bg py-8"
-        style={{ height }}
-        onMouseEnter={() => animateOnHover && setIsHovered(true)}
-        onMouseLeave={() => animateOnHover && setIsHovered(false)}
-      >
-        {title && (
-          <div className="absolute top-1/2 left-1/2 mx-auto w-full max-w-[90%] -translate-x-1/2 -translate-y-1/2 text-center">
-            <p className="mx-auto max-w-3xl text-4xl font-semibold tracking-tight text-ink/10 sm:text-5xl">
-              {title}
-            </p>
-          </div>
-        )}
-
+    <section className="w-full">
+      <div aria-hidden="true" className="relative w-full overflow-hidden bg-bg py-8" style={{ height }}>
         <div
           className="@container absolute inset-0 grid"
           style={{ gridTemplateRows: `repeat(${rows.length}, 1fr)` }}
@@ -103,18 +66,11 @@ export function LogoTimeline({
                   style={{
                     animationDelay: `${logo.animationDelay}s`,
                     animationDuration: `${logo.animationDuration}s`,
-                    animationPlayState,
                     animationIterationCount: logo.loop ? 'infinite' : 1,
                     animationFillMode: logo.loop ? 'none' : 'forwards',
                   }}
                 >
-                  {logo.icon ?? (
-                    <span
-                      aria-hidden
-                      className="shrink-0 rounded-full bg-amber"
-                      style={{ width: iconSize, height: iconSize }}
-                    />
-                  )}
+                  <span aria-hidden className="shrink-0 h-2 w-2 rounded-full bg-amber" />
                   <span className="font-mono text-sm text-ink">{logo.label}</span>
                 </div>
               ))}
@@ -125,5 +81,3 @@ export function LogoTimeline({
     </section>
   );
 }
-
-export default LogoTimeline;

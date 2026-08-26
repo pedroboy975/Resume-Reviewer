@@ -1,10 +1,8 @@
 'use client';
 
 import { Fragment } from 'react';
-import type { YearMonth } from '@/lib/dates';
+import { formatYearMonth as fmt } from '@/lib/dates';
 import type { Timeline as TimelineData } from '@/lib/timeline';
-
-const fmt = (ym: YearMonth) => `${String(ym.month).padStart(2, '0')}/${ym.year}`;
 
 const duration = (months: number) => {
   const years = Math.floor(months / 12);

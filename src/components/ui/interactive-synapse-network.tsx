@@ -2,17 +2,14 @@
 
 import { useEffect, useRef, type ReactNode } from 'react';
 
+const NODE_COLOR = 'var(--color-amber)';
+const PULSE_COLOR = 'var(--color-ink)';
+const CONNECTION_COLOR = 'var(--color-amber)';
+const TRAIL_COLOR = 'var(--color-bg)';
+
 export interface InteractiveSynapseNetworkProps {
   /** Conteúdo renderizado por cima do canvas. */
   children?: ReactNode;
-  /** Cor de cada nó (qualquer valor aceito por `ctx.fillStyle`). */
-  nodeColor?: string;
-  /** Cor do pulso que percorre uma conexão. */
-  pulseColor?: string;
-  /** Cor das linhas de conexão entre nós. */
-  connectionColor?: string;
-  /** Cor do preenchimento que cria o rastro (deve ser opaca; a opacidade vem de `trailOpacity`). */
-  trailColor?: string;
   /** Quantos nós simular. */
   nodeCount?: number;
   /** Distância máxima (px) para formar uma conexão. */
@@ -69,10 +66,6 @@ function makeNode(width: number, height: number): NodeState {
  */
 export function InteractiveSynapseNetwork({
   children,
-  nodeColor = 'var(--color-amber)',
-  pulseColor = 'var(--color-ink)',
-  connectionColor = 'var(--color-amber)',
-  trailColor = 'var(--color-bg)',
   nodeCount = 50,
   connectionRadius = 200,
   trailOpacity = 0.2,
@@ -102,10 +95,10 @@ export function InteractiveSynapseNetwork({
       const resolved = getComputedStyle(wrapper).getPropertyValue(match[1]).trim();
       return resolved || value;
     };
-    const resolvedNodeColor = resolveColor(nodeColor);
-    const resolvedPulseColor = resolveColor(pulseColor);
-    const resolvedConnectionColor = resolveColor(connectionColor);
-    const resolvedTrailColor = resolveColor(trailColor);
+    const resolvedNodeColor = resolveColor(NODE_COLOR);
+    const resolvedPulseColor = resolveColor(PULSE_COLOR);
+    const resolvedConnectionColor = resolveColor(CONNECTION_COLOR);
+    const resolvedTrailColor = resolveColor(TRAIL_COLOR);
 
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const mouse = { x: -9999, y: -9999 };
@@ -258,7 +251,7 @@ export function InteractiveSynapseNetwork({
     });
     observer.observe(wrapper);
     return () => observer.disconnect();
-  }, [nodeColor, pulseColor, connectionColor, trailColor, nodeCount, connectionRadius, trailOpacity]);
+  }, [nodeCount, connectionRadius, trailOpacity]);
 
   return (
     <div
@@ -272,5 +265,3 @@ export function InteractiveSynapseNetwork({
     </div>
   );
 }
-
-export default InteractiveSynapseNetwork;

@@ -21,7 +21,7 @@
  * acha, o período fica de fora. Nunca inventa um rótulo.
  */
 
-import { monthsBetween, parsePeriods, type Period } from './dates';
+import { byRecentStart, parsePeriods, type Period } from './dates';
 import { detectHeading } from './sections';
 
 /** A linha é um intervalo de datas, não nome de cargo nem de empresa. */
@@ -215,5 +215,5 @@ export function extractCompanies(text: string, periods: Period[]): JobStint[] {
 
 /** Mais antigo primeiro — mesma convenção da linha do tempo numérica. */
 export function chronological(stints: JobStint[]): JobStint[] {
-  return [...stints].sort((a, b) => monthsBetween(b.period.start, a.period.start));
+  return [...stints].sort((a, b) => byRecentStart(a.period, b.period));
 }
